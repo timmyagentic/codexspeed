@@ -208,6 +208,7 @@ const prohibitedStringPatterns = [
   new RegExp(["-----BEGIN ", "(?:[A-Z0-9]+ )?", "PRIVATE KEY-----"].join(""), "i"),
   /(?:^|[\s;,{])(?:[a-z0-9]+[_-])*(?:api[_-]?key|key|token|secret|password)\s*[:=]\s*\S+/i,
   /(?:^|[\s;,{])(?:accessToken|authToken|apiKey|clientSecret|privateKey)\s*[:=]\s*\S+/i,
+  /(?:^|[^A-Za-z0-9])[a-z][A-Za-z0-9]*(?:Token|Key|Secret|Password)\s*[:=]\s*\S+/,
 ];
 
 function visitStrings(value: unknown, path: Path, visit: (text: string, path: Path) => void): void {

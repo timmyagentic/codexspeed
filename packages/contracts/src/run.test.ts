@@ -114,12 +114,20 @@ const prohibitedStrings = [
   ["a camel-case access-token assignment", ["access", "Token", "=", "example-secret"].join("")],
   ["a camel-case API-key assignment", ["api", "Key", ":", "example-secret"].join("")],
   ["a camel-case auth-token assignment", ["auth", "Token", " = ", "example-secret"].join("")],
+  ["a prefixed camel-case access-token assignment", ["openai", "Access", "Token", "=", "example-secret"].join("")],
+  ["a refresh-token assignment", ["refresh", "Token", "=", "example-secret"].join("")],
+  ["a session-token assignment", ["session", "Token", "=", "example-secret"].join("")],
+  ["a prefixed camel-case API-key assignment", ["publisher", "Api", "Key", "=", "example-secret"].join("")],
+  ["a prefixed camel-case secret assignment", ["worker", "Client", "Secret", "=", "example-secret"].join("")],
+  ["a camel-case password assignment", ["database", "Password", "=", "example-secret"].join("")],
 ] as const;
 
 const allowedAssignmentLikeStrings = [
   "accessTokenization=benchmark",
   "apiKeynote=release",
   "authTokenizer=enabled",
+  "monkey=benchmark",
+  "hockey=benchmark",
 ] as const;
 
 const catalogEfforts = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"] as const;
