@@ -180,15 +180,18 @@ For each measured turn, the runner records:
   `thread/tokenUsage/updated`;
 - turn status, model reroute events, message count, and any tool-like item.
 
-Every trial uses a new thread, so thread-cumulative usage belongs only to that
-trial. The recorder retains the newest usage snapshot observed before
-`turn/completed`; if none exists it waits up to one second for a final
-`thread/tokenUsage/updated` notification. A missing final snapshot produces the
-stable `missing_token_usage` invalid reason instead of a zero-token result.
+Every trial uses a new thread. The recorder accepts only
+`thread/tokenUsage/updated` notifications whose thread and turn IDs match the
+active trial, and reads the notification's `tokenUsage.last` breakdown rather
+than the thread-cumulative `total`. It retains the newest matching snapshot
+observed before `turn/completed`; if none exists it waits up to one second for a
+final matching notification. A missing final snapshot produces the stable
+`missing_token_usage` invalid reason instead of a zero-token result.
 
-No prompt, reasoning text, local path, account identifier, access token, or App
-Server transcript is uploaded. The fixed public prompt is referenced by suite
-version and stored in the repository.
+No prompt text, model response text, reasoning text, local path, account
+identifier, access token, or App Server transcript is uploaded. The fixed public
+prompt is referenced only by its public identifier and SHA-256; its full text is
+versioned in the repository.
 
 ### 5.5 Validity rules
 

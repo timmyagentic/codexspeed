@@ -1,5 +1,6 @@
 .DS_Store
 .worktrees/
+.superpowers/
 node_modules/
 dist/
 coverage/
@@ -7,6 +8,14 @@ playwright-report/
 test-results/
 .wrangler/
 .dev.vars
+.env
+.env.*
+!.env.example
+auth.json
+.codex/
+*.pem
+*.key
+*.p12
 *.local
 *.log
 artifacts/

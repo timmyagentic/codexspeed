@@ -1,0 +1,45 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "codexspeed-web",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-07-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "codexspeed.timmyagentic.com",
+      "custom_domain": true,
+    },
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "vars": {
+    "PUBLISHER_KEY_ID": "publisher-v1",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "codexspeed",
+      "database_id": "3f8110cc-3508-495a-b3c1-58363e3d7dbb",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "secrets": {
+    "required": ["PUBLISHER_HMAC_SECRET"],
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "head_sampling_rate": 1,
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01,
+    },
+  },
+}
