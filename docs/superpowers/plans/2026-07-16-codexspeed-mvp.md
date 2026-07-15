@@ -377,9 +377,11 @@ Map only the allow-listed visible model fields and efforts App Server reports;
 never retain the raw catalog object. Create a new thread for each trial. Record
 relative monotonic timings for the first/last non-empty visible deltas and
 completion. Count final agent messages and all command/file/MCP/web tool-like
-items. Use the newest thread usage snapshot and wait up to one second after
-completion when none has arrived; otherwise record `missing_token_usage`. Store
-no response text after the structural validator returns its enum result.
+items. Accept only usage notifications matching the active thread and turn IDs,
+read `tokenUsage.last` rather than cumulative `total`, and wait up to one second
+after completion when no matching snapshot has arrived; otherwise record
+`missing_token_usage`. Store no response text after the structural validator
+returns its enum result.
 
 - [ ] **Step 5: Pass runner integration tests and commit**
 
