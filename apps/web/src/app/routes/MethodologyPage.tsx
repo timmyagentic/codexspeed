@@ -32,7 +32,7 @@ export function MethodologyPage() {
             The exact prompt is versioned and hashed before each run. Responses
             and reasoning text are never uploaded.
           </p>
-          <pre>{benchmarkPrompt.trimEnd()}</pre>
+          <pre tabIndex={0}>{benchmarkPrompt.trimEnd()}</pre>
         </div>
       </section>
       <section>
