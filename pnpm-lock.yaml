@@ -55,6 +55,16 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/runner:
+    dependencies:
+      '@codexspeed/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.1
+        version: 22.20.1
+
 packages:
 
   '@cloudflare/kv-asset-handler@0.5.0':
