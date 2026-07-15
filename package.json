@@ -10,6 +10,7 @@
     "pnpm": ">=10 <11"
   },
   "scripts": {
+    "codexspeed": "corepack pnpm --filter @codexspeed/runner codexspeed",
     "test": "corepack pnpm -r --if-present test",
     "typecheck": "corepack pnpm -r --if-present typecheck",
     "check": "corepack pnpm test && corepack pnpm typecheck"

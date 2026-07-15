@@ -11,6 +11,9 @@ Write at least 400 words and no more than 550 words. Use exactly these four Mark
 ## Trade-offs
 ## Recommendation`;
 
+export const BENCHMARK_PROMPT_SHA256 =
+  "48ebeacd78a933ea53e78e13439c489db1264b121928806acc9e350ec9dbd56e";
+
 export type OutputValidation =
   | { passed: true; reason: "ok" }
   | { passed: false; reason: "too_short" | "bad_structure" | "missing_output" };

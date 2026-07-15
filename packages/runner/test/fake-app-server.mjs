@@ -31,7 +31,7 @@ function assertInitialize(message) {
   if (
     info?.name !== "codexspeed" ||
     info?.title !== "CodexSpeed" ||
-    info?.version !== "0.0.0" ||
+    info?.version !== "0.1.0" ||
     message.params?.capabilities?.experimentalApi !== true ||
     Object.keys(message.params.capabilities).length !== 1
   ) {

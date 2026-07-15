@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { RUNNER_VERSION } from "./version.js";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_TURN_TIMEOUT_MS = 10 * 60_000;
@@ -143,7 +144,7 @@ export class AppServerClient {
         clientInfo: {
           name: "codexspeed",
           title: "CodexSpeed",
-          version: "0.0.0",
+          version: RUNNER_VERSION,
         },
         capabilities: {
           experimentalApi: true,
