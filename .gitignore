@@ -1,0 +1,12 @@
+.DS_Store
+.worktrees/
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.wrangler/
+.dev.vars
+*.local
+*.log
+artifacts/
