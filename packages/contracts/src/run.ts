@@ -4,9 +4,22 @@ const MAX_MODELS = 100;
 const MAX_SELECTION_CELLS = 200;
 const MAX_SAMPLES = 200;
 
-const EffortSchema = z.enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const ComparableEffortSchema = z.enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const CatalogEffortSchema = z.enum([
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+]);
 const ModelIdSchema = z.string().trim().min(1).max(128).regex(/^[a-z0-9][a-z0-9._/-]*$/i);
-const UtcTimestampSchema = z.string().datetime({ offset: false });
+const UtcTimestampSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+  .datetime({ offset: false, precision: 3 });
 const UuidV7Schema = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
@@ -38,8 +51,8 @@ const CatalogModelSchema = z
     id: ModelIdSchema,
     displayName: z.string().trim().min(1).max(200),
     hidden: z.boolean(),
-    defaultEffort: EffortSchema,
-    supportedEfforts: z.array(EffortSchema).min(1).max(7),
+    defaultEffort: CatalogEffortSchema,
+    supportedEfforts: z.array(CatalogEffortSchema).min(1).max(8),
   })
   .strict()
   .superRefine((model, context) => {
@@ -79,7 +92,7 @@ const CatalogSchema = z
 const SelectionCellSchema = z
   .object({
     model: ModelIdSchema,
-    effort: EffortSchema,
+    effort: ComparableEffortSchema,
   })
   .strict();
 
@@ -106,7 +119,7 @@ export const RunSampleSchema = z
   .object({
     sampleId: UuidV7Schema,
     model: ModelIdSchema,
-    effort: EffortSchema,
+    effort: ComparableEffortSchema,
     phase: z.enum(["warmup", "measured"]),
     round: NonNegativeIntegerSchema,
     attempt: PositiveIntegerSchema,
@@ -194,6 +207,7 @@ const prohibitedStringPatterns = [
   /\beyJ[a-z0-9_-]*\.[a-z0-9_-]+\.[a-z0-9_-]+\b/i,
   new RegExp(["-----BEGIN ", "(?:[A-Z0-9]+ )?", "PRIVATE KEY-----"].join(""), "i"),
   /(?:^|[\s;,{])(?:[a-z0-9]+[_-])*(?:api[_-]?key|key|token|secret|password)\s*[:=]\s*\S+/i,
+  /(?:^|[\s;,{])(?:accessToken|authToken|apiKey|clientSecret|privateKey)\s*[:=]\s*\S+/i,
 ];
 
 function visitStrings(value: unknown, path: Path, visit: (text: string, path: Path) => void): void {

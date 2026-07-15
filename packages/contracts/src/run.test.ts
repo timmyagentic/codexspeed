@@ -32,6 +32,18 @@ const invalidRunCases: InvalidRunCase[] = [
     },
   },
   {
+    name: "a UTC timestamp with extra fractional digits",
+    mutate: (run) => {
+      run.startedAt = "2026-07-16T08:00:00.0000Z";
+    },
+  },
+  {
+    name: "a UTC timestamp without canonical millisecond precision",
+    mutate: (run) => {
+      run.startedAt = "2026-07-16T08:00:00Z";
+    },
+  },
+  {
     name: "a first visible timing after the last visible timing",
     mutate: (run) => {
       run.samples[0]!.firstVisibleTextMs = 11_001;
@@ -99,7 +111,18 @@ const prohibitedStrings = [
   ["a credential assignment", ["OPENAI_API_KEY", "=", "example-secret"].join("")],
   ["a bare credential assignment", ["TOKEN", "=", "example-secret"].join("")],
   ["a compound credential assignment", ["AWS_SECRET_ACCESS_KEY", "=", "example-secret"].join("")],
+  ["a camel-case access-token assignment", ["access", "Token", "=", "example-secret"].join("")],
+  ["a camel-case API-key assignment", ["api", "Key", ":", "example-secret"].join("")],
+  ["a camel-case auth-token assignment", ["auth", "Token", " = ", "example-secret"].join("")],
 ] as const;
+
+const allowedAssignmentLikeStrings = [
+  "accessTokenization=benchmark",
+  "apiKeynote=release",
+  "authTokenizer=enabled",
+] as const;
+
+const catalogEfforts = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"] as const;
 
 describe("RunUploadSchema", () => {
   it("accepts the canonical fixture and rejects unknown data", () => {
@@ -121,6 +144,31 @@ describe("RunUploadSchema", () => {
     expect(fixture.samples[1]).toMatchObject({ toolEventCount: 1 });
   });
 
+  it("accepts ultra as an exact catalog-supported effort", () => {
+    const run = createRunFixture();
+    run.catalog.models[0]!.defaultEffort = "ultra";
+    run.catalog.models[0]!.supportedEfforts = [...catalogEfforts];
+
+    expect(RunUploadSchema.parse(run).catalog.models[0]).toMatchObject({
+      defaultEffort: "ultra",
+      supportedEfforts: catalogEfforts,
+    });
+  });
+
+  it("rejects ultra in the selected comparable matrix", () => {
+    const run = createRunFixture();
+    Object.assign(run.selection.cells[0]!, { effort: "ultra" });
+
+    expect(() => RunUploadSchema.parse(run)).toThrow();
+  });
+
+  it("rejects ultra in a recorded sample", () => {
+    const run = createRunFixture();
+    Object.assign(run.samples[0]!, { effort: "ultra" });
+
+    expect(() => RunUploadSchema.parse(run)).toThrow();
+  });
+
   for (const { name, mutate } of invalidRunCases) {
     it(`rejects ${name}`, () => {
       const run = createRunFixture();
@@ -136,6 +184,15 @@ describe("RunUploadSchema", () => {
       run.catalog.models[0]!.displayName = value;
 
       expect(() => RunUploadSchema.parse(run)).toThrow();
+    });
+  }
+
+  for (const value of allowedAssignmentLikeStrings) {
+    it(`accepts a non-credential assignment-like string: ${value}`, () => {
+      const run = createRunFixture();
+      run.catalog.models[0]!.displayName = value;
+
+      expect(RunUploadSchema.parse(run).catalog.models[0]!.displayName).toBe(value);
     });
   }
 
@@ -166,7 +223,7 @@ describe("RunUploadSchema", () => {
     }));
 
     const supportedEfforts = createRunFixture();
-    supportedEfforts.catalog.models[0]!.supportedEfforts = Array.from({ length: 8 }, () => "medium");
+    supportedEfforts.catalog.models[0]!.supportedEfforts = Array.from({ length: 9 }, () => "medium");
 
     const selection = createRunFixture();
     const efforts = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
