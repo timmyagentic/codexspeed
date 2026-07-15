@@ -7,6 +7,14 @@
   "vars": {
     "PUBLISHER_KEY_ID": "publisher-v1"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "codexspeed",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
   "secrets": {
     "required": ["PUBLISHER_HMAC_SECRET"]
   },

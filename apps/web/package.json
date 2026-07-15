@@ -10,6 +10,10 @@
     "typecheck:worker": "tsc --noEmit -p tsconfig.json",
     "types:check": "wrangler types worker-configuration.d.ts --include-runtime=false --check"
   },
+  "dependencies": {
+    "@codexspeed/contracts": "workspace:*",
+    "@codexspeed/metrics": "workspace:*"
+  },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.18.5",
     "@cloudflare/workers-types": "5.20260715.1",

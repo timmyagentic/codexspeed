@@ -14,8 +14,8 @@ const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/u;
 export type VerifiedUpload = {
   bytes: Uint8Array;
   bodySha256: string;
+  document: unknown;
   idempotencyKey: string;
-  runId: string;
 };
 
 function authenticationFailed(): ProblemError {
@@ -36,14 +36,6 @@ function invalidBody(): ProblemError {
 
 function invalidJson(): ProblemError {
   return new ProblemError(400, "invalid_json", "Invalid JSON");
-}
-
-function idempotencyMismatch(): ProblemError {
-  return new ProblemError(
-    400,
-    "idempotency_mismatch",
-    "Idempotency key does not match run ID",
-  );
 }
 
 function mediaType(contentType: string): string {
@@ -173,28 +165,14 @@ async function verifySignature(
   }
 }
 
-function parseRunId(bytes: Uint8Array): string {
-  let document: unknown;
+function parseDocument(bytes: Uint8Array): unknown {
   try {
     const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes);
-    document = JSON.parse(text);
+    const document: unknown = JSON.parse(text);
+    return document;
   } catch {
     throw invalidJson();
   }
-
-  if (!isJsonObject(document)) {
-    throw invalidJson();
-  }
-
-  const runId = document["runId"];
-  if (typeof runId !== "string") {
-    throw invalidJson();
-  }
-  return runId;
-}
-
-function isJsonObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 export async function verifyUploadRequest(
@@ -252,15 +230,12 @@ export async function verifyUploadRequest(
     throw authenticationFailed();
   }
 
-  const runId = parseRunId(bytes);
-  if (runId !== idempotencyKey) {
-    throw idempotencyMismatch();
-  }
+  const document = parseDocument(bytes);
 
   return {
     bytes,
     bodySha256,
+    document,
     idempotencyKey,
-    runId,
   };
 }

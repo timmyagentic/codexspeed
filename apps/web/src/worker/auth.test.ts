@@ -134,8 +134,8 @@ describe("verifyUploadRequest", () => {
     expect(verified).toEqual({
       bodySha256: FIXED_BODY_SHA256,
       bytes: new TextEncoder().encode(FIXED_BODY),
+      document: JSON.parse(FIXED_BODY),
       idempotencyKey: RUN_ID,
-      runId: RUN_ID,
     });
   });
 
@@ -157,10 +157,10 @@ describe("verifyUploadRequest", () => {
     const futureBoundary = await signedRequest({ timestamp: "2026-07-16T08:05:00.000Z" });
 
     await expect(verifyUploadRequest(pastBoundary, testEnv, NOW)).resolves.toMatchObject({
-      runId: RUN_ID,
+      idempotencyKey: RUN_ID,
     });
     await expect(verifyUploadRequest(futureBoundary, testEnv, NOW)).resolves.toMatchObject({
-      runId: RUN_ID,
+      idempotencyKey: RUN_ID,
     });
   });
 
@@ -264,16 +264,15 @@ describe("verifyUploadRequest", () => {
     );
   });
 
-  it("checks the body run ID against the idempotency key only after HMAC verification", async () => {
+  it("returns authenticated JSON for schema and idempotency validation by the route", async () => {
     const request = await signedRequest({
       body: `{"runId":"${OTHER_RUN_ID}"}`,
       idempotencyKey: RUN_ID,
     });
 
-    await expectProblemError(verifyUploadRequest(request, testEnv, NOW), {
-      code: "idempotency_mismatch",
-      status: 400,
-      title: "Idempotency key does not match run ID",
+    await expect(verifyUploadRequest(request, testEnv, NOW)).resolves.toMatchObject({
+      document: { runId: OTHER_RUN_ID },
+      idempotencyKey: RUN_ID,
     });
   });
 
@@ -298,13 +297,12 @@ describe("verifyUploadRequest", () => {
     });
   });
 
-  it("requires authenticated JSON to expose a string runId", async () => {
-    for (const body of [`{"value":1}`, `{"runId":1}`]) {
+  it("does not interpret authenticated schema-invalid JSON", async () => {
+    for (const body of [`{"value":1}`, `{"runId":1}`, `[]`]) {
       const request = await signedRequest({ body });
-      await expectProblemError(verifyUploadRequest(request, testEnv, NOW), {
-        code: "invalid_json",
-        status: 400,
-        title: "Invalid JSON",
+      await expect(verifyUploadRequest(request, testEnv, NOW)).resolves.toMatchObject({
+        document: JSON.parse(body),
+        idempotencyKey: RUN_ID,
       });
     }
   });
