@@ -59,7 +59,7 @@ describe("codexspeed CLI", () => {
     ) as { version: string };
 
     expect(packageJson.version).toBe(RUNNER_VERSION);
-    expect(RUNNER_VERSION).toBe("0.1.0");
+    expect(RUNNER_VERSION).toBe("0.1.1");
   });
 
   it("creates canonical UUIDv7 identifiers with timestamp, version, and variant bits", () => {

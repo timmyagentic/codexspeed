@@ -336,6 +336,10 @@ export async function recordTrial(
     const completion = await client.withTurnTimeout(turnOperation);
     const totalLatencyMs = elapsed(startedAt, completion.receivedAt);
 
+    if (completion.status !== "completed") {
+      return failureResult("turn_failed", totalLatencyMs, outputText, state());
+    }
+
     let finalTokenSnapshot = currentTokenSnapshot();
     if (finalTokenSnapshot === null) {
       await Promise.race([
@@ -357,7 +361,7 @@ export async function recordTrial(
       validation = { passed: false, reason: "too_short" };
     }
     return {
-      status: completion.status === "completed" ? "completed" : "failed",
+      status: "completed",
       firstVisibleTextMs,
       lastVisibleTextMs,
       totalLatencyMs,
@@ -368,7 +372,7 @@ export async function recordTrial(
       reroutedTo,
       validatorPassed: validation.passed,
       validatorReason: validation.reason,
-      errorCode: completion.status === "completed" ? null : "turn_failed",
+      errorCode: null,
     };
   } catch (error) {
     const totalLatencyMs = elapsed(startedAt, clock.now());

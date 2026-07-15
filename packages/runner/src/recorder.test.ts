@@ -120,6 +120,18 @@ describe("recordTrial", () => {
     });
   });
 
+  it("does not misclassify a failed turn that has no token usage", async () => {
+    const recorderClock = clock();
+
+    await expect(run("failed-no-usage", recorderClock)).resolves.toMatchObject({
+      status: "failed",
+      outputTokens: 0,
+      reasoningOutputTokens: 0,
+      errorCode: "turn_failed",
+    });
+    expect(recorderClock.sleeps).toEqual([]);
+  });
+
   it("counts final agent messages from the completed turn", async () => {
     await expect(run("multiple-message")).resolves.toMatchObject({ agentMessageCount: 2 });
   });

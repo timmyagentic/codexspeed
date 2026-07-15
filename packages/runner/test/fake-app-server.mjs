@@ -31,7 +31,7 @@ function assertInitialize(message) {
   if (
     info?.name !== "codexspeed" ||
     info?.title !== "CodexSpeed" ||
-    info?.version !== "0.1.0" ||
+    info?.version !== "0.1.1" ||
     message.params?.capabilities?.experimentalApi !== true ||
     Object.keys(message.params.capabilities).length !== 1
   ) {
@@ -219,8 +219,8 @@ function streamTurn() {
     });
   }
 
-  if (!new Set(["missing-usage", "late-usage"]).has(scenario)) send(usage());
-  complete(scenario === "failed" ? "failed" : "completed");
+  if (!new Set(["missing-usage", "late-usage", "failed-no-usage"]).has(scenario)) send(usage());
+  complete(new Set(["failed", "failed-no-usage"]).has(scenario) ? "failed" : "completed");
   if (scenario === "late-usage") setTimeout(() => send(usage()), 5);
   if (scenario === "post-completion-usage") send(usage("thread-active", "turn-active", 777, 77));
 }

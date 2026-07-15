@@ -1,5 +1,4 @@
 /*
-  Cache-Control: public, max-age=0, must-revalidate
   Content-Security-Policy: default-src 'none'; base-uri 'none'; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self'; script-src 'self'; style-src 'self'
   Permissions-Policy: camera=(), geolocation=(), microphone=()
   Referrer-Policy: no-referrer
@@ -9,3 +8,18 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/runs
+  Cache-Control: public, max-age=0, must-revalidate
+
+/runs/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/methodology
+  Cache-Control: public, max-age=0, must-revalidate

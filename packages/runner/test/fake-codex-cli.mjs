@@ -112,7 +112,7 @@ const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
 input.on("line", (line) => {
   const message = JSON.parse(line);
   if (message.method === "initialize") {
-    if (message.params?.clientInfo?.version !== "0.1.0") {
+    if (message.params?.clientInfo?.version !== "0.1.1") {
       rpcError(message.id, "wrong runner version");
       return;
     }
