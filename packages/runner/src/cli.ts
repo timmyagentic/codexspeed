@@ -4,15 +4,17 @@ import { pathToFileURL } from "node:url";
 import { runDoctor } from "./commands/doctor.js";
 import { runPlan } from "./commands/plan.js";
 import { runBenchmark, type RunCommandDependencies } from "./commands/run.js";
+import { runPublish, type PublishCommandDependencies } from "./commands/publish.js";
 import { AppServerError } from "./app-server.js";
 import { RunnerRuntimeError, type RuntimeOptions } from "./runtime.js";
+import { PublisherError } from "./publisher.js";
 
 export type CliIo = {
   stdout(line: string): void;
   stderr(line: string): void;
 };
 
-export type CliDependencies = RuntimeOptions & RunCommandDependencies & {
+export type CliDependencies = RuntimeOptions & RunCommandDependencies & PublishCommandDependencies & {
   io?: CliIo;
 };
 
@@ -31,7 +33,11 @@ type ParsedSuiteOptions = {
 type ParsedCommand =
   | { name: "doctor" }
   | { name: "plan"; options: ParsedSuiteOptions }
-  | { name: "run"; options: ParsedSuiteOptions & { out: string } };
+  | { name: "run"; options: ParsedSuiteOptions & { out: string } }
+  | {
+      name: "publish";
+      options: { file: string; endpoint?: string; allowHttpLocalhost: boolean };
+    };
 
 class CliUsageError extends Error {}
 
@@ -136,14 +142,54 @@ function parseCommand(arguments_: readonly string[]): ParsedCommand {
     const parsed = parseSuiteOptions(options, "run");
     return { name: "run", options: { ...parsed, out: parsed.out! } };
   }
-  throw new CliUsageError("command must be doctor, plan, or run");
+  if (command === "publish") {
+    const [file, ...publishOptions] = options;
+    if (file === undefined || file.length === 0 || file.startsWith("--")) {
+      throw new CliUsageError("publish requires an artifact file");
+    }
+    let endpoint: string | undefined;
+    let allowHttpLocalhost = false;
+    for (let index = 0; index < publishOptions.length; index += 1) {
+      const option = publishOptions[index]!;
+      if (option === "--endpoint") {
+        const value = publishOptions[index + 1];
+        if (
+          value === undefined ||
+          value.length === 0 ||
+          value.startsWith("--") ||
+          endpoint !== undefined
+        ) {
+          throw new CliUsageError("--endpoint needs one value");
+        }
+        endpoint = value;
+        index += 1;
+      } else if (option === "--allow-http-localhost") {
+        if (allowHttpLocalhost) {
+          throw new CliUsageError("--allow-http-localhost may be used once");
+        }
+        allowHttpLocalhost = true;
+      } else {
+        throw new CliUsageError("unknown publish option");
+      }
+    }
+    return {
+      name: "publish",
+      options: {
+        file,
+        allowHttpLocalhost,
+        ...(endpoint === undefined ? {} : { endpoint }),
+      },
+    };
+  }
+  throw new CliUsageError("command must be doctor, plan, run, or publish");
 }
 
 function safeFailure(error: unknown, fallback: string): string {
   if (
     error instanceof RunnerRuntimeError ||
     error instanceof AppServerError ||
-    error instanceof RangeError
+    error instanceof RangeError ||
+    error instanceof PublisherError
   ) {
     return `Error: ${error.message}`;
   }
@@ -193,6 +239,16 @@ export async function runCli(
       return 0;
     } catch (error) {
       io.stderr(safeFailure(error, "run failed"));
+      return 1;
+    }
+  }
+  if (command.name === "publish") {
+    try {
+      const lines = await runPublish(command.options, dependencies);
+      for (const line of lines) io.stdout(line);
+      return 0;
+    } catch (error) {
+      io.stderr(safeFailure(error, "publish failed"));
       return 1;
     }
   }

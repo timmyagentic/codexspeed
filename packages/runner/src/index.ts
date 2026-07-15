@@ -32,3 +32,14 @@ export {
   type ScheduleOptions,
 } from "./scheduler.js";
 export { RUNNER_VERSION } from "./version.js";
+export {
+  createSignedRequest,
+  DEFAULT_PUBLISH_ENDPOINT,
+  MAX_ARTIFACT_BYTES,
+  PublisherError,
+  publishArtifact,
+  type PublishArtifactOptions,
+  type PublishArtifactResult,
+  type SignedArtifactRequest,
+  type SignedRequestOptions,
+} from "./publisher.js";
