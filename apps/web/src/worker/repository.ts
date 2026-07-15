@@ -1,5 +1,10 @@
-import type { RunUpload } from "@codexspeed/contracts";
-import type { RunSummary } from "@codexspeed/metrics";
+import type {
+  PublicRunSummary,
+  RunListMetadata,
+  RunListResponse,
+  RunPublication,
+  RunUpload,
+} from "@codexspeed/contracts";
 
 import { ProblemError } from "./problem.js";
 
@@ -44,21 +49,6 @@ type RunListRow = {
   valid_samples: number;
 };
 
-export type RunPublication = {
-  payloadSha256: string;
-  publishedAt: string;
-};
-
-export type PublicRunResponse = {
-  publication: RunPublication;
-  run: RunUpload;
-  summary: RunSummary;
-};
-
-export type LatestRunResponse = PublicRunResponse & {
-  generation: number;
-};
-
 export type StoredPublicRunResponse = {
   body: string;
   publication: RunPublication;
@@ -68,33 +58,11 @@ export type StoredLatestRunResponse = StoredPublicRunResponse & {
   generation: number;
 };
 
-export type RunListMetadata = Pick<
-  RunUpload,
-  | "codexCliVersion"
-  | "endedAt"
-  | "mode"
-  | "protocolVersion"
-  | "runId"
-  | "runnerVersion"
-  | "schemaVersion"
-  | "startedAt"
-  | "status"
-  | "suiteVersion"
-> & {
-  publication: RunPublication;
-  summary: Pick<RunSummary, "coverage" | "reliability">;
-};
-
-export type RunListResponse = {
-  data: RunListMetadata[];
-  nextCursor: string | null;
-};
-
 export type InsertRunInput = {
   payloadSha256: string;
   publishedAt: string;
   run: RunUpload;
-  summary: RunSummary;
+  summary: PublicRunSummary;
 };
 
 export type InsertRunResult = {
