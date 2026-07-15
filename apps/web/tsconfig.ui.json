@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    "jsx": "react-jsx",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "types": ["@testing-library/jest-dom", "vite/client", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/setup-ui.ts", "vite.config.ts", "vitest.ui.config.ts"],
+  "exclude": ["src/worker/**", "test/apply-migrations.ts", "vitest.config.ts", "worker-configuration.d.ts"]
+}
