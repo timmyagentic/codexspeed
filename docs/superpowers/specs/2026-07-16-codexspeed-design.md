@@ -104,18 +104,23 @@ tests/e2e/                local and production browser/API journeys
 docs/methodology/         public methodology sources
 ```
 
-The web build produces static HTML, CSS, and JavaScript. Cloudflare Static
-Assets serves those requests without invoking Worker code. Only `/api/*`
-requests invoke the Worker. D1 is the only production datastore.
+The web build produces static HTML, CSS, and JavaScript with client-side
+routing. Cloudflare Static Assets uses `single-page-application` fallback so a
+future `/runs/:run_id` deep link returns the application shell even though that
+run did not exist at build time. Static requests do not invoke Worker code;
+`assets.run_worker_first` routes only `/api/*` to the Worker. D1 is the only
+production datastore.
 
 ## 5. Local benchmark protocol
 
 ### 5.1 Catalog discovery
 
 At the beginning of each run, the runner starts `codex app-server`, performs the
-JSON-RPC initialization handshake, and calls `model/list`. It records the full
-visible catalog snapshot, including model identifiers, display names, default
-effort, and supported reasoning efforts.
+JSON-RPC initialization handshake, and calls `model/list`. It projects the
+visible catalog into a fixed allow-list containing only model identifiers,
+display names, visibility, default effort, and supported reasoning efforts. It
+never retains or uploads the raw response object, so new App Server fields cannot
+silently enter the public payload.
 
 The comparable matrix contains every non-hidden model/effort combination except
 `ultra`. Ultra is excluded because its documented subagent behavior is not a
@@ -134,6 +139,15 @@ Each trial uses:
 - one versioned, public synthetic prompt;
 - sequential execution, so trials do not compete locally;
 - monotonic clocks for durations and UTC wall clocks for audit metadata.
+
+The runner creates a private temporary `CODEX_HOME` containing only a temporary
+copy of the existing authentication material and no `config.toml`, AGENTS file,
+plugin, skill, hook, history, or MCP configuration. It also uses a separate
+temporary workspace whose parent chain contains no project instructions. Both
+directories are removed after the run. This preserves the existing ChatGPT
+login while preventing the publisher's normal Codex configuration from changing
+the benchmark. The runner applies explicit read-only, no-search, default-tier,
+and non-interactive settings. Any tool-like event still invalidates the sample.
 
 The prompt combines moderate reasoning with a deterministic structured response
 of at least 400 visible tokens. A validator checks section headings, response
@@ -165,6 +179,12 @@ For each measured turn, the runner records:
 - output and reasoning-output token totals from
   `thread/tokenUsage/updated`;
 - turn status, model reroute events, message count, and any tool-like item.
+
+Every trial uses a new thread, so thread-cumulative usage belongs only to that
+trial. The recorder retains the newest usage snapshot observed before
+`turn/completed`; if none exists it waits up to one second for a final
+`thread/tokenUsage/updated` notification. A missing final snapshot produces the
+stable `missing_token_usage` invalid reason instead of a zero-token result.
 
 No prompt, reasoning text, local path, account identifier, access token, or App
 Server transcript is uploaded. The fixed public prompt is referenced by suite
@@ -248,17 +268,38 @@ X-Benchmark-Signature
 Idempotency-Key
 ```
 
-The signature covers method, canonical path, timestamp, idempotency key, and
-lowercase hexadecimal body hash. The Worker performs constant-time comparison,
-requires the idempotency key to equal the run ID, and accepts timestamps within
-five minutes. A body is parsed only after its hash and signature are valid.
+The exact UTF-8 canonical message is seven lines with no trailing newline:
+
+```text
+codexspeed-hmac-v1
+POST
+/api/v1/runs
+2026-07-16T08:00:00.000Z
+publisher-v1
+01900000-0000-7000-8000-000000000001
+<lowercase hexadecimal SHA-256 of the exact request bytes>
+```
+
+The timestamp is UTC RFC 3339 with exactly three fractional-second digits, the
+canonical path is exactly `/api/v1/runs` with no query, the key ID is signed,
+and the signature is unpadded base64url HMAC-SHA256. The publisher emits
+deterministic compact JSON and signs/sends the same bytes; repeat publication
+uses the existing artifact bytes without reserialization. The Worker streams at
+most 1 MiB plus one sentinel byte and aborts an oversized body even when
+`Content-Length` is absent or false. It verifies the byte hash and HMAC with Web
+Crypto before JSON parsing, requires the idempotency key to equal the parsed run
+ID, and accepts timestamps within five minutes.
 
 ### 7.3 Idempotency and atomic publication
 
-Publishing the same run ID with the same canonical payload hash returns the
-existing successful result. Reusing a run ID with different content returns
-409. A D1 batch atomically inserts the immutable run and advances the singleton
-latest pointer. A duplicate request must never repoint an older run as latest.
+Publishing the same run ID with the same exact request-byte hash returns the
+existing successful result. Semantically equivalent JSON with different bytes
+is intentionally a conflict. Reusing a run ID with different bytes returns 409.
+The Worker first checks for an existing ID, then uses one D1 batch to insert the
+immutable run and upsert the singleton latest pointer. If a concurrent insert
+wins, the failed request rereads that ID and returns idempotent success or 409 by
+hash. The existing-run path never updates the pointer, so repeating an older run
+cannot make it latest.
 
 ### 7.4 Error shape
 
@@ -312,8 +353,10 @@ server summary without reconstructing it from many rows.
   compatibility; it exposes no secret or account data.
 
 Immutable run responses use a long public cache lifetime and ETags derived from
-the payload hash. Latest responses use short edge caching and the publication
-generation as an ETag. Upload and error responses are `no-store`.
+the payload hash. Latest responses use ETags but disable browser and edge
+caching so a successful upload is immediately observable without an explicit
+cache purge. List responses use a short public cache. Upload and error responses
+are `no-store`.
 
 ## 10. Dashboard experience
 
