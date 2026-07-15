@@ -14,7 +14,8 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 const KEY_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/u;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/u;
 
-export const DEFAULT_PUBLISH_ENDPOINT = "https://codexspeed.timmyagentic.com/api/v1/runs";
+export const DEFAULT_PUBLISH_ENDPOINT =
+  "https://codexspeed.timmyagentic.com/api/v1/runs";
 
 export class PublisherError extends Error {
   constructor(message: string) {
@@ -57,7 +58,10 @@ function decodeArtifact(bytes: Uint8Array): RunUpload {
   }
 
   try {
-    const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes);
+    const text = new TextDecoder("utf-8", {
+      fatal: true,
+      ignoreBOM: false,
+    }).decode(bytes);
     const document: unknown = JSON.parse(text);
     return RunUploadSchema.parse(document);
   } catch (error) {
@@ -96,7 +100,9 @@ function publisherSecret(value: string | undefined): Buffer {
 }
 
 function isLoopback(hostname: string): boolean {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  return (
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
+  );
 }
 
 function publishUrl(endpoint: string, allowHttpLocalhost: boolean): URL {
@@ -163,7 +169,9 @@ export async function createSignedRequest(
     run.runId,
     bodySha256,
   ].join("\n");
-  const signature = createHmac("sha256", secret).update(canonical, "utf8").digest("base64url");
+  const signature = createHmac("sha256", secret)
+    .update(canonical, "utf8")
+    .digest("base64url");
   const headers = new Headers({
     "Content-Type": "application/json",
     "Idempotency-Key": run.runId,
@@ -172,10 +180,12 @@ export async function createSignedRequest(
     "X-Benchmark-Timestamp": timestamp,
     "X-Content-SHA256": bodySha256,
   });
+  const requestBody = new Uint8Array(body.byteLength);
+  requestBody.set(body);
 
   return {
     request: new Request(endpoint, {
-      body,
+      body: requestBody.buffer,
       headers,
       method: "POST",
       redirect: "error",
@@ -243,7 +253,9 @@ async function readBoundedResponse(response: Response): Promise<string> {
     offset += chunk.byteLength;
   }
   try {
-    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes);
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
+      bytes,
+    );
   } catch {
     throw new PublisherError("publication response is invalid");
   }
@@ -254,14 +266,21 @@ export async function publishArtifact(
   options: PublishArtifactOptions,
 ): Promise<PublishArtifactResult> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300_000) {
+  if (
+    !Number.isSafeInteger(timeoutMs) ||
+    timeoutMs <= 0 ||
+    timeoutMs > 300_000
+  ) {
     throw new PublisherError("publication timeout is invalid");
   }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const signed = await createSignedRequest(body, { ...options, signal: controller.signal });
+    const signed = await createSignedRequest(body, {
+      ...options,
+      signal: controller.signal,
+    });
     let response: Response;
     try {
       response = await (options.fetch ?? globalThis.fetch)(signed.request);
@@ -283,13 +302,19 @@ export async function publishArtifact(
     }
     const document = parseResponse(text);
     if (document.run.runId !== signed.run.runId) {
-      throw new PublisherError("publication response run ID does not match the artifact");
+      throw new PublisherError(
+        "publication response run ID does not match the artifact",
+      );
     }
     if (document.summary.runId !== signed.run.runId) {
-      throw new PublisherError("publication response summary does not match the artifact");
+      throw new PublisherError(
+        "publication response summary does not match the artifact",
+      );
     }
     if (document.publication.payloadSha256 !== signed.bodySha256) {
-      throw new PublisherError("publication response hash does not match the artifact");
+      throw new PublisherError(
+        "publication response hash does not match the artifact",
+      );
     }
 
     return {

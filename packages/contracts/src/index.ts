@@ -15,4 +15,10 @@ export {
   type RunListResponse,
   type RunPublication,
 } from "./public.js";
-export { RunSampleSchema, RunUploadSchema, type RunSample, type RunUpload } from "./run.js";
+export {
+  CanonicalSemverSchema,
+  RunSampleSchema,
+  RunUploadSchema,
+  type RunSample,
+  type RunUpload,
+} from "./run.js";

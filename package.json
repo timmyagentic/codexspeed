@@ -11,12 +11,30 @@
   },
   "scripts": {
     "codexspeed": "corepack pnpm --filter @codexspeed/runner codexspeed",
+    "build": "corepack pnpm -r --if-present build",
+    "format:check": "prettier --check package.json tsconfig.e2e.json playwright.config.ts eslint.config.js .github/workflows/ci.yml README.md THIRD_PARTY_NOTICES.md scripts tests/e2e docs/methodology/README.md docs/methodology/formulas.md docs/methodology/limitations.md apps/web/vite.config.ts apps/web/wrangler.jsonc apps/web/src/styles.css apps/web/src/app/routes/MethodologyPage.tsx apps/web/src/app/routes/RunDetailPage.tsx apps/web/src/app/source-revision.ts apps/web/src/app/source-revision.test.ts apps/web/src/components/MetricSelector.tsx apps/web/src/components/SiteFooter.tsx apps/web/src/components/SiteHeader.tsx packages/contracts/package.json packages/contracts/tsconfig.json packages/contracts/src/index.ts packages/contracts/src/run.ts packages/contracts/src/run.test.ts packages/runner/package.json packages/runner/tsconfig.json packages/runner/src/cli.ts packages/runner/src/cli.test.ts packages/runner/src/publisher.ts",
+    "lint": "eslint .",
+    "test:cli-built": "node scripts/check-runner-cli.mjs",
+    "test:sensitive": "node --test scripts/check-sensitive-output.test.mjs && node scripts/check-sensitive-output.mjs",
+    "test:e2e": "corepack pnpm build && playwright test",
+    "test:e2e:prepared": "playwright test",
     "test": "corepack pnpm -r --if-present test",
-    "typecheck": "corepack pnpm -r --if-present typecheck",
-    "check": "corepack pnpm test && corepack pnpm typecheck"
+    "typecheck": "corepack pnpm -r --if-present typecheck && corepack pnpm --filter @codexspeed/web types:check && tsc --noEmit -p tsconfig.e2e.json",
+    "check": "corepack pnpm format:check && corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build && corepack pnpm test:cli-built && corepack pnpm test:e2e:prepared && corepack pnpm test:sensitive && git diff --check"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@codexspeed/contracts": "workspace:*",
+    "@codexspeed/metrics": "workspace:*",
+    "@codexspeed/runner": "workspace:*",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.61.1",
+    "@types/node": "22.20.1",
+    "eslint": "10.7.0",
+    "globals": "17.7.0",
+    "prettier": "3.9.5",
     "typescript": "5.9.3",
+    "typescript-eslint": "8.64.0",
     "vitest": "3.2.7"
   }
 }

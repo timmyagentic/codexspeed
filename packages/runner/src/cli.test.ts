@@ -1,4 +1,11 @@
-import { readFile, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
+import {
+  readFile,
+  mkdtemp,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,7 +17,9 @@ import { BENCHMARK_PROMPT, BENCHMARK_PROMPT_SHA256 } from "./prompt.js";
 import { createUuidV7 } from "./commands/run.js";
 import { RUNNER_VERSION } from "./version.js";
 
-const fakeCodex = fileURLToPath(new URL("../test/fake-codex-cli.mjs", import.meta.url));
+const fakeCodex = fileURLToPath(
+  new URL("../test/fake-codex-cli.mjs", import.meta.url),
+);
 const temporaryDirectories: string[] = [];
 
 async function temporaryAuth() {
@@ -23,7 +32,11 @@ async function temporaryAuth() {
 
 afterEach(async () => {
   vi.unstubAllEnvs();
-  await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true })));
+  await Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true })),
+  );
 });
 
 function output() {
@@ -66,21 +79,36 @@ describe("codexspeed CLI", () => {
   });
 
   it.each([
-    [["plan", "--max-turns", "0"], "Error: --max-turns must be an integer from 1 through 200"],
-    [["plan", "--max-turns", "1", "--rounds", "0"], "Error: --rounds must be an integer from 1 through 100"],
-    [["plan", "--max-turns", "1", "--seed", "-1"], "Error: --seed must be an unsigned 32-bit integer"],
-    [["plan", "--max-turns", "1", "--effort", "ultra"], "Error: --effort must be comparable"],
+    [
+      ["plan", "--max-turns", "0"],
+      "Error: --max-turns must be an integer from 1 through 200",
+    ],
+    [
+      ["plan", "--max-turns", "1", "--rounds", "0"],
+      "Error: --rounds must be an integer from 1 through 100",
+    ],
+    [
+      ["plan", "--max-turns", "1", "--seed", "-1"],
+      "Error: --seed must be an unsigned 32-bit integer",
+    ],
+    [
+      ["plan", "--max-turns", "1", "--effort", "ultra"],
+      "Error: --effort must be comparable",
+    ],
     [["run", "--max-turns", "1"], "Error: --out is required"],
     [["doctor", "--model", "x"], "Error: doctor accepts no options"],
-  ] as const)("rejects unsafe arguments for %s", async (arguments_, expected) => {
-    const captured = output();
+  ] as const)(
+    "rejects unsafe arguments for %s",
+    async (arguments_, expected) => {
+      const captured = output();
 
-    const exitCode = await runCli(arguments_, { io: captured.io });
+      const exitCode = await runCli(arguments_, { io: captured.io });
 
-    expect(exitCode).toBe(2);
-    expect(captured.stdout).toEqual([]);
-    expect(captured.stderr).toEqual([expected]);
-  });
+      expect(exitCode).toBe(2);
+      expect(captured.stdout).toEqual([]);
+      expect(captured.stderr).toEqual([expected]);
+    },
+  );
 
   it("runs a live-style doctor in an isolated home without starting a model turn", async () => {
     const { directory, authPath } = await temporaryAuth();
@@ -107,10 +135,44 @@ describe("codexspeed CLI", () => {
     expect(await readdir(directory)).toEqual(["auth.json"]);
   });
 
+  it("accepts exactly one package-manager argument separator for documented commands", async () => {
+    const { directory, authPath } = await temporaryAuth();
+    const doctor = output();
+    const plan = output();
+    const dependencies = {
+      codexCommand: process.execPath,
+      codexArguments: [fakeCodex, "doctor"],
+      authPath,
+      temporaryParent: directory,
+    };
+
+    expect(
+      await runCli(["--", "doctor"], { ...dependencies, io: doctor.io }),
+    ).toBe(0);
+    expect(
+      await runCli(["--", "plan", "--model", "gpt-test", "--max-turns", "4"], {
+        ...dependencies,
+        io: plan.io,
+      }),
+    ).toBe(0);
+    expect(doctor.stderr).toEqual([]);
+    expect(plan.stderr).toEqual([]);
+
+    const doubled = output();
+    expect(await runCli(["--", "--", "doctor"], { io: doubled.io })).toBe(2);
+    expect(doubled.stderr).toEqual([
+      "Error: command must be doctor, plan, run, or publish",
+    ]);
+  });
+
   it("reports known safe doctor failures without exposing the authentication path", async () => {
     const directory = await mkdtemp(join(tmpdir(), "codexspeed-cli-test-"));
     temporaryDirectories.push(directory);
-    const missingAuthPath = join(directory, "private-account-name", "auth.json");
+    const missingAuthPath = join(
+      directory,
+      "private-account-name",
+      "auth.json",
+    );
     const captured = output();
 
     const exitCode = await runCli(["doctor"], {
@@ -121,7 +183,9 @@ describe("codexspeed CLI", () => {
 
     expect(exitCode).toBe(1);
     expect(captured.stdout).toEqual([]);
-    expect(captured.stderr).toEqual(["Error: ChatGPT authentication is unavailable"]);
+    expect(captured.stderr).toEqual([
+      "Error: ChatGPT authentication is unavailable",
+    ]);
     expect(captured.stderr.join(" ")).not.toContain(missingAuthPath);
     expect(captured.stderr.join(" ")).not.toContain("private-account-name");
   });
@@ -353,14 +417,24 @@ describe("codexspeed CLI", () => {
     );
 
     expect(exitCode).toBe(0);
-    const run = RunUploadSchema.parse(JSON.parse(await readFile(artifactPath, "utf8")));
+    const run = RunUploadSchema.parse(
+      JSON.parse(await readFile(artifactPath, "utf8")),
+    );
     expect(run.status).toBe("completed");
     expect(run.samples).toHaveLength(2);
-    expect(run.samples[0]).toMatchObject({ status: "failed", errorCode: "timeout" });
-    expect(run.samples[1]).toMatchObject({ status: "completed", errorCode: null });
+    expect(run.samples[0]).toMatchObject({
+      status: "failed",
+      errorCode: "timeout",
+    });
+    expect(run.samples[1]).toMatchObject({
+      status: "completed",
+      errorCode: null,
+    });
     expect(await readFile(statePath, "utf8")).toBe("2");
     expect(captured.stdout).toContain("Finished turn 1/2: failed; remaining 1");
-    expect(captured.stdout).toContain("Finished turn 2/2: completed; remaining 0");
+    expect(captured.stdout).toContain(
+      "Finished turn 2/2: completed; remaining 0",
+    );
   });
 
   it("keeps the repository prompt document byte-locked to the executed prompt", async () => {
@@ -370,8 +444,8 @@ describe("codexspeed CLI", () => {
     );
 
     expect(document).toBe(`${BENCHMARK_PROMPT}\n`);
-    expect(createHash("sha256").update(BENCHMARK_PROMPT, "utf8").digest("hex")).toBe(
-      BENCHMARK_PROMPT_SHA256,
-    );
+    expect(
+      createHash("sha256").update(BENCHMARK_PROMPT, "utf8").digest("hex"),
+    ).toBe(BENCHMARK_PROMPT_SHA256);
   });
 });

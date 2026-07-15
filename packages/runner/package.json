@@ -15,7 +15,7 @@
     }
   },
   "scripts": {
-    "build": "corepack pnpm --filter @codexspeed/contracts build && tsc && node --input-type=module --eval \"const runner = await import('@codexspeed/runner'); if (typeof runner.buildSchedule !== 'function') process.exit(1)\"",
+    "build": "corepack pnpm --filter @codexspeed/contracts build && node ../../scripts/clean-package-dist.mjs && tsc && node --input-type=module --eval \"const runner = await import('@codexspeed/runner'); if (typeof runner.buildSchedule !== 'function') process.exit(1)\"",
     "codexspeed": "node --enable-source-maps dist/src/cli.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

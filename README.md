@@ -12,8 +12,11 @@ endorsed by OpenAI. “Codex” is used only to identify the product being measu
 
 ## Status
 
-MVP implementation is in progress. The approved design is documented in
-[`docs/superpowers/specs/2026-07-16-codexspeed-design.md`](docs/superpowers/specs/2026-07-16-codexspeed-design.md).
+The reproducible local runner, signed publication API, and display dashboard are
+implemented. Production deployment and the first genuine smoke publication are
+the final release step. Read the public
+[`methodology`](docs/methodology/README.md) and the approved
+[`design`](docs/superpowers/specs/2026-07-16-codexspeed-design.md).
 
 ## Local runner
 
@@ -74,6 +77,12 @@ and verifies the returned run ID and payload hash. Repeating a byte-identical
 artifact is safe and reports `already published`; reusing a run ID with different
 bytes returns a conflict.
 
+Production artifacts must come from a verified immutable GitHub release tag
+`v<runnerVersion>`. The run detail page links that exact tag and never treats a
+mutable branch as reproducible source evidence. The methodology documents
+scheduling, formulas, validity, limitations, cost safeguards, and reference
+project licenses.
+
 For local integration tests only, plain HTTP must be both loopback-only and
 explicitly enabled. Query strings, fragments, user info, and any path other than
 `/api/v1/runs` are rejected:
@@ -87,4 +96,5 @@ corepack pnpm --filter @codexspeed/runner codexspeed -- publish \
 
 ## License
 
-Apache-2.0. See [`LICENSE`](LICENSE).
+Apache-2.0. See [`LICENSE`](LICENSE). Bundled web dependencies and their MIT
+license notices are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

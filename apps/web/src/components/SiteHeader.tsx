@@ -23,7 +23,15 @@ export function SiteHeader({ activePath }: SiteHeaderProps) {
   ] as const;
 
   return (
-    <header className="site-header">
+    <header
+      className="site-header"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && menuOpen) {
+          event.preventDefault();
+          setMenuOpen(false);
+        }
+      }}
+    >
       <a className="wordmark" href="/" aria-label="CodexSpeed home">
         CodexSpeed
       </a>
@@ -34,16 +42,27 @@ export function SiteHeader({ activePath }: SiteHeaderProps) {
         aria-controls="site-navigation"
         onClick={() => setMenuOpen((open) => !open)}
       >
-        <span className="menu-lines" aria-hidden="true"><i /><i /><i /></span>
+        <span className="menu-lines" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
         Menu
       </button>
-      <nav id="site-navigation" className="site-navigation" data-open={menuOpen} aria-label="Primary">
+      <nav
+        id="site-navigation"
+        className="site-navigation"
+        data-open={menuOpen}
+        aria-label="Primary"
+      >
         {links.map((link) => (
           <a
             key={link.href}
             className={activeFor(link.href, activePath) ? "active" : undefined}
             href={link.href}
-            {...("external" in link ? { rel: "noreferrer", target: "_blank" } : {})}
+            {...("external" in link
+              ? { rel: "noreferrer", target: "_blank" }
+              : {})}
           >
             {link.label}
           </a>

@@ -106,20 +106,56 @@ const invalidRunCases: InvalidRunCase[] = [
 const prohibitedStrings = [
   ["an API-key-shaped value", ["s", "k-", "demo"].join("")],
   ["a bearer credential", ["Bear", "er ", "example-token"].join("")],
-  ["a JWT-shaped value", ["eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOiIxMjMifQ", "signature"].join(".")],
+  [
+    "a JWT-shaped value",
+    ["eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOiIxMjMifQ", "signature"].join("."),
+  ],
   ["a private-key marker", ["-----BEGIN ", "PRIVATE KEY-----"].join("")],
-  ["a credential assignment", ["OPENAI_API_KEY", "=", "example-secret"].join("")],
+  [
+    "a credential assignment",
+    ["OPENAI_API_KEY", "=", "example-secret"].join(""),
+  ],
   ["a bare credential assignment", ["TOKEN", "=", "example-secret"].join("")],
-  ["a compound credential assignment", ["AWS_SECRET_ACCESS_KEY", "=", "example-secret"].join("")],
-  ["a camel-case access-token assignment", ["access", "Token", "=", "example-secret"].join("")],
-  ["a camel-case API-key assignment", ["api", "Key", ":", "example-secret"].join("")],
-  ["a camel-case auth-token assignment", ["auth", "Token", " = ", "example-secret"].join("")],
-  ["a prefixed camel-case access-token assignment", ["openai", "Access", "Token", "=", "example-secret"].join("")],
-  ["a refresh-token assignment", ["refresh", "Token", "=", "example-secret"].join("")],
-  ["a session-token assignment", ["session", "Token", "=", "example-secret"].join("")],
-  ["a prefixed camel-case API-key assignment", ["publisher", "Api", "Key", "=", "example-secret"].join("")],
-  ["a prefixed camel-case secret assignment", ["worker", "Client", "Secret", "=", "example-secret"].join("")],
-  ["a camel-case password assignment", ["database", "Password", "=", "example-secret"].join("")],
+  [
+    "a compound credential assignment",
+    ["AWS_SECRET_ACCESS_KEY", "=", "example-secret"].join(""),
+  ],
+  [
+    "a camel-case access-token assignment",
+    ["access", "Token", "=", "example-secret"].join(""),
+  ],
+  [
+    "a camel-case API-key assignment",
+    ["api", "Key", ":", "example-secret"].join(""),
+  ],
+  [
+    "a camel-case auth-token assignment",
+    ["auth", "Token", " = ", "example-secret"].join(""),
+  ],
+  [
+    "a prefixed camel-case access-token assignment",
+    ["openai", "Access", "Token", "=", "example-secret"].join(""),
+  ],
+  [
+    "a refresh-token assignment",
+    ["refresh", "Token", "=", "example-secret"].join(""),
+  ],
+  [
+    "a session-token assignment",
+    ["session", "Token", "=", "example-secret"].join(""),
+  ],
+  [
+    "a prefixed camel-case API-key assignment",
+    ["publisher", "Api", "Key", "=", "example-secret"].join(""),
+  ],
+  [
+    "a prefixed camel-case secret assignment",
+    ["worker", "Client", "Secret", "=", "example-secret"].join(""),
+  ],
+  [
+    "a camel-case password assignment",
+    ["database", "Password", "=", "example-secret"].join(""),
+  ],
 ] as const;
 
 const allowedAssignmentLikeStrings = [
@@ -130,19 +166,58 @@ const allowedAssignmentLikeStrings = [
   "hockey=benchmark",
 ] as const;
 
-const catalogEfforts = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"] as const;
+const catalogEfforts = [
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+] as const;
 
 describe("RunUploadSchema", () => {
   it("accepts the canonical fixture and rejects unknown data", () => {
     expect(RunUploadSchema.parse(createRunFixture()).schemaVersion).toBe(1);
-    expect(() => RunUploadSchema.parse({ ...createRunFixture(), accessToken: "secret" })).toThrow();
+    expect(() =>
+      RunUploadSchema.parse({ ...createRunFixture(), accessToken: "secret" }),
+    ).toThrow();
+  });
+
+  it.each(["0.1.0", "1.0.0", "12.34.56-beta.1", "12.34.56+build.7"])(
+    "accepts canonical semantic runner version %s",
+    (runnerVersion) => {
+      const run = createRunFixture();
+      run.runnerVersion = runnerVersion;
+
+      expect(RunUploadSchema.parse(run).runnerVersion).toBe(runnerVersion);
+    },
+  );
+
+  it.each([
+    "v0.1.0",
+    "01.2.3",
+    "1.02.3",
+    "1.2",
+    "1.2.3.4",
+    "1.2.3-01",
+    "latest",
+  ])("rejects non-canonical runner version %s", (runnerVersion) => {
+    const run = createRunFixture();
+    run.runnerVersion = runnerVersion;
+
+    expect(() => RunUploadSchema.parse(run)).toThrow();
   });
 
   it("contains one valid-looking and one deliberately invalid measured sample", () => {
     const fixture = createRunFixture();
 
     expect(fixture.samples).toHaveLength(2);
-    expect(fixture.samples.map((sample) => sample.phase)).toEqual(["measured", "measured"]);
+    expect(fixture.samples.map((sample) => sample.phase)).toEqual([
+      "measured",
+      "measured",
+    ]);
     expect(fixture.samples[0]).toMatchObject({
       outputTokens: 600,
       reasoningOutputTokens: 100,
@@ -200,7 +275,9 @@ describe("RunUploadSchema", () => {
       const run = createRunFixture();
       run.catalog.models[0]!.displayName = value;
 
-      expect(RunUploadSchema.parse(run).catalog.models[0]!.displayName).toBe(value);
+      expect(RunUploadSchema.parse(run).catalog.models[0]!.displayName).toBe(
+        value,
+      );
     });
   }
 
@@ -231,10 +308,21 @@ describe("RunUploadSchema", () => {
     }));
 
     const supportedEfforts = createRunFixture();
-    supportedEfforts.catalog.models[0]!.supportedEfforts = Array.from({ length: 9 }, () => "medium");
+    supportedEfforts.catalog.models[0]!.supportedEfforts = Array.from(
+      { length: 9 },
+      () => "medium",
+    );
 
     const selection = createRunFixture();
-    const efforts = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+    const efforts = [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ] as const;
     selection.catalog.models = Array.from({ length: 29 }, (_, index) => ({
       ...model,
       id: `model-${index}`,
@@ -242,7 +330,9 @@ describe("RunUploadSchema", () => {
       supportedEfforts: [...efforts],
     }));
     selection.selection.cells = selection.catalog.models
-      .flatMap((catalogModel) => efforts.map((effort) => ({ model: catalogModel.id, effort })))
+      .flatMap((catalogModel) =>
+        efforts.map((effort) => ({ model: catalogModel.id, effort })),
+      )
       .slice(0, 201);
 
     expect(() => RunUploadSchema.parse(catalog)).toThrow();
