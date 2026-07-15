@@ -136,6 +136,14 @@ describe("recordTrial", () => {
     await expect(run("multiple-message")).resolves.toMatchObject({ agentMessageCount: 2 });
   });
 
+  it("counts agent messages from item completion when the completed turn omits items", async () => {
+    await expect(run("current-protocol-items")).resolves.toMatchObject({
+      status: "completed",
+      agentMessageCount: 1,
+      errorCode: null,
+    });
+  });
+
   it.each([
     ["bad-output", "bad_structure"],
     ["short-output", "too_short"],

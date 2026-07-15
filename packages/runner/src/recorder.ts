@@ -230,6 +230,7 @@ export async function recordTrial(
           if (typeof params["delta"] !== "string") {
             throw new AppServerProtocolError("App Server returned invalid agent delta");
           }
+          agentMessageIds.add(requiredString(params["itemId"], "agent message item ID"));
           outputText += params["delta"];
           if (params["delta"].trim().length > 0) {
             if (receivedAt === null) {
@@ -258,7 +259,11 @@ export async function recordTrial(
         case "item/completed": {
           const item = requiredObject(params["item"], "thread item");
           const identity = itemIdentity(item);
-          if (isToolLike(identity.type)) toolItemIds.add(identity.id);
+          if (identity.type === "agentMessage" && notification.method === "item/completed") {
+            agentMessageIds.add(identity.id);
+          } else if (isToolLike(identity.type)) {
+            toolItemIds.add(identity.id);
+          }
           break;
         }
         case "turn/completed": {

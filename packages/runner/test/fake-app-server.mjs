@@ -31,7 +31,7 @@ function assertInitialize(message) {
   if (
     info?.name !== "codexspeed" ||
     info?.title !== "CodexSpeed" ||
-    info?.version !== "0.1.1" ||
+    info?.version !== "0.1.2" ||
     message.params?.capabilities?.experimentalApi !== true ||
     Object.keys(message.params.capabilities).length !== 1
   ) {
@@ -118,7 +118,7 @@ function commandItem() {
 }
 
 function complete(status = "completed") {
-  const items = [agentItem()];
+  const items = scenario === "current-protocol-items" ? [] : [agentItem()];
   if (scenario === "tool") items.push(commandItem());
   if (scenario === "multiple-message") items.push(agentItem("message-second"));
 
@@ -216,6 +216,18 @@ function streamTurn() {
     send({
       method: "item/completed",
       params: { threadId: "thread-active", turnId: "turn-active", item, completedAtMs: 2 },
+    });
+  }
+
+  if (scenario === "current-protocol-items") {
+    send({
+      method: "item/completed",
+      params: {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        item: agentItem(),
+        completedAtMs: 2,
+      },
     });
   }
 
