@@ -2,7 +2,7 @@ import type { PublicRunResponse } from "@codexspeed/contracts";
 import { useEffect, useState } from "react";
 
 import { fetchRun } from "../api.js";
-import { formatEffort, formatUtc } from "../format.js";
+import { formatEffort, formatRunScope, formatUtc } from "../format.js";
 import { METRIC_FORMULAS } from "../methodology.js";
 import { describePublishedSample } from "../sample-result.js";
 import { runnerSourceRevision } from "../source-revision.js";
@@ -57,7 +57,7 @@ export function RunDetailPage({ runId }: { runId: string }) {
         <p>
           <a href="/runs">← All runs</a>
         </p>
-        <h1>{run.mode === "smoke" ? "Smoke run" : "Full run"}</h1>
+        <h1>{formatRunScope(run.mode, run.selection.series)}</h1>
         <dl className="detail-identity">
           <div>
             <dt>Published</dt>

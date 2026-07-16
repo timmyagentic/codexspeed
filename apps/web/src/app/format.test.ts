@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMetric, metricHeat, relativeDifference } from "./format.js";
+import {
+  formatMetric,
+  formatRunScope,
+  metricHeat,
+  relativeDifference,
+} from "./format.js";
+
+describe("formatRunScope", () => {
+  it.each([
+    ["smoke", null, "Smoke run"],
+    ["full", null, "Full run"],
+    ["series", "gpt-5.6", "GPT-5.6 Series run"],
+  ] as const)("formats %s publication labels", (mode, series, expected) => {
+    expect(formatRunScope(mode, series)).toBe(expected);
+  });
+});
 
 describe("formatMetric", () => {
   it.each([

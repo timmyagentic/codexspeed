@@ -17,8 +17,8 @@ export function MethodologyPage() {
         <p>
           Each selected model and supported reasoning effort receives the same
           versioned prompt through the locally installed Codex App Server. A
-          full run performs one unmeasured warm-up per model at its catalog
-          default effort; when that default is Ultra or otherwise
+          standard series or full run performs one unmeasured warm-up per model
+          at its catalog default effort; when that default is Ultra or otherwise
           non-comparable, it uses the first selected comparable effort. Three
           measured rounds follow. Every round uses a seeded Fisher–Yates shuffle
           and runs sequentially; the artifact records the seed and exact
@@ -104,14 +104,16 @@ export function MethodologyPage() {
         </p>
       </section>
       <section>
-        <h2>Smoke, full, and exclusions</h2>
+        <h2>Smoke, series, full, and exclusions</h2>
         <p>
           A smoke run measures an explicitly selected bounded subset and proves
-          integration only; a full run covers every discovered comparable
-          model/effort cell with the configured warm-ups and measured rounds.
-          Ultra is excluded because its subagent behavior is not a single-agent
-          effort comparison. Optional fast service tiers are also outside the
-          default matrix.
+          integration only. A series run covers every comparable cell for the
+          exact requested model-family identifier, with one warm-up per model
+          and three measured rounds. A full run covers every discovered
+          comparable model/effort cell with the same standard schedule. Ultra is
+          excluded because its subagent behavior is not a single-agent effort
+          comparison. Optional fast service tiers are also outside the default
+          matrix.
         </p>
       </section>
       <section>

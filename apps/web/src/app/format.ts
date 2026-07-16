@@ -100,3 +100,19 @@ export function formatEffort(effort: string): string {
   }
   return effort.charAt(0).toUpperCase() + effort.slice(1);
 }
+
+export function formatRunScope(
+  mode: "smoke" | "full" | "series",
+  series: string | null | undefined,
+): string {
+  switch (mode) {
+    case "smoke":
+      return "Smoke run";
+    case "full":
+      return "Full run";
+    case "series":
+      return series === null || series === undefined
+        ? "Series run"
+        : `${series.toUpperCase()} Series run`;
+  }
+}

@@ -13,4 +13,17 @@ describe("MethodologyPage", () => {
     expect(prompt).toBeInstanceOf(HTMLPreElement);
     expect(prompt).toHaveAttribute("tabindex", "0");
   });
+
+  it("distinguishes bounded series runs from smoke and full runs", () => {
+    render(<MethodologyPage />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Smoke, series, full, and exclusions",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/series run covers every comparable cell/iu),
+    ).toBeVisible();
+  });
 });

@@ -22,7 +22,7 @@ const routeCases: readonly {
     route: "/runs",
     ready: async (page) => {
       await expect(
-        page.getByRole("link", { name: /Smoke run/iu }),
+        page.getByRole("link", { name: /GPT-5\.6 Series run/iu }),
       ).toBeVisible();
     },
   },

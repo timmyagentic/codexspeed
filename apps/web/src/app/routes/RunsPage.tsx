@@ -2,7 +2,7 @@ import type { RunListMetadata } from "@codexspeed/contracts";
 import { useEffect, useState } from "react";
 
 import { fetchRuns } from "../api.js";
-import { formatPercent, formatUtc } from "../format.js";
+import { formatPercent, formatRunScope, formatUtc } from "../format.js";
 
 type RunListState =
   | { status: "loading" }
@@ -68,7 +68,7 @@ export function RunsPage() {
               <li key={run.runId}>
                 <a href={`/runs/${run.runId}`}>
                   <span className="run-date">{formatUtc(run.publication.publishedAt)}</span>
-                  <strong>{run.mode === "smoke" ? "Smoke run" : "Full run"}</strong>
+                  <strong>{formatRunScope(run.mode, run.series)}</strong>
                   <span>{run.summary.coverage.measuredCells} / {run.summary.coverage.selectedCells} cells</span>
                   <span>{formatPercent(run.summary.reliability.validSamples, run.summary.reliability.measuredSamples)} valid</span>
                   <span>Suite {run.suiteVersion}</span>
