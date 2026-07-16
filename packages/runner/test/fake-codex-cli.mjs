@@ -214,7 +214,8 @@ input.on("line", (line) => {
         : message.params?.model === "gpt-test";
     if (
       typeof workspace !== "string" ||
-      (statSync(workspace).mode & 0o777) !== 0o700 ||
+      (process.platform !== "win32" &&
+        (statSync(workspace).mode & 0o777) !== 0o700) ||
       !expectedModel ||
       message.params?.sandbox !== "read-only" ||
       message.params?.approvalPolicy !== "never" ||
