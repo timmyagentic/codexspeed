@@ -1,7 +1,8 @@
 import { rm } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = resolve(new URL("..", import.meta.url).pathname);
+const root = fileURLToPath(new URL("..", import.meta.url));
 const packagePath = relative(root, process.cwd()).split(sep).join("/");
 const allowedPackages = new Set([
   "packages/contracts",
