@@ -112,7 +112,7 @@ const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
 input.on("line", (line) => {
   const message = JSON.parse(line);
   if (message.method === "initialize") {
-    if (message.params?.clientInfo?.version !== "0.1.2") {
+    if (message.params?.clientInfo?.version !== "0.1.3") {
       rpcError(message.id, "wrong runner version");
       return;
     }
@@ -130,6 +130,24 @@ input.on("line", (line) => {
     return;
   }
   if (message.method === "model/list") {
+    if (scenario === "series-plan" || scenario === "series-run") {
+      send({
+        id: message.id,
+        result: {
+          data: ["sol", "terra", "luna"].map((suffix) => ({
+            id: `gpt-5.6-${suffix}`,
+            displayName: `GPT-5.6 ${suffix}`,
+            hidden: false,
+            defaultReasoningEffort: suffix === "sol" ? "low" : "medium",
+            supportedReasoningEfforts: ["low", "medium", "high", "xhigh", "max", "ultra"].map(
+              (reasoningEffort) => ({ reasoningEffort, description: reasoningEffort }),
+            ),
+          })),
+          nextCursor: null,
+        },
+      });
+      return;
+    }
     send({
       id: message.id,
       result: {
@@ -160,10 +178,16 @@ input.on("line", (line) => {
   }
   if (message.method === "thread/start") {
     const workspace = message.params?.cwd;
+    const expectedModel =
+      scenario === "series-run"
+        ? new Set(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]).has(
+            message.params?.model,
+          )
+        : message.params?.model === "gpt-test";
     if (
       typeof workspace !== "string" ||
       (statSync(workspace).mode & 0o777) !== 0o700 ||
-      message.params?.model !== "gpt-test" ||
+      !expectedModel ||
       message.params?.sandbox !== "read-only" ||
       message.params?.approvalPolicy !== "never" ||
       message.params?.ephemeral !== true ||
@@ -184,7 +208,8 @@ input.on("line", (line) => {
     return;
   }
   if (message.method === "turn/start") {
-    if (scenario === "doctor" || scenario === "plan") fail("unexpected model turn");
+    if (scenario === "doctor" || scenario === "plan" || scenario === "series-plan")
+      fail("unexpected model turn");
     if (scenario === "timeout-recover" && serverNumber === 1) return;
     send({ id: message.id, result: { turn: { id: "turn-active", status: "inProgress", items: [] } } });
     send({

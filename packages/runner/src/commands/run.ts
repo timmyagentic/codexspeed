@@ -211,6 +211,9 @@ export async function runBenchmark(
           warmupPerModel: builtSchedule.warmupPerModel,
           measuredRounds: builtSchedule.measuredRounds,
           maxTurns: builtSchedule.maxTurns,
+          ...(builtSchedule.series === undefined
+            ? {}
+            : { series: builtSchedule.series }),
         },
         samples,
       });

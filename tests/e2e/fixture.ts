@@ -39,11 +39,11 @@ export const E2E_RUN = RunUploadSchema.parse({
   runId: "01900000-0000-7000-8000-000000000100",
   suiteVersion: "1.0.0",
   protocolVersion: "1.0.0",
-  runnerVersion: "0.1.0",
+  runnerVersion: "0.1.3",
   codexCliVersion: "0.144.1",
   startedAt: "2026-07-16T09:00:00.000Z",
   endedAt: "2026-07-16T09:05:00.000Z",
-  mode: "smoke",
+  mode: "series",
   seed: 73,
   status: "partial",
   prompt: {
@@ -61,14 +61,14 @@ export const E2E_RUN = RunUploadSchema.parse({
   catalog: {
     models: [
       {
-        id: "model-atlas",
+        id: "gpt-5.6-atlas",
         displayName: "Model Atlas",
         hidden: false,
         defaultEffort: "medium",
         supportedEfforts: ["low", "medium", "high", "ultra"],
       },
       {
-        id: "model-boreal",
+        id: "gpt-5.6-boreal",
         displayName: "Model Boreal",
         hidden: false,
         defaultEffort: "high",
@@ -78,25 +78,26 @@ export const E2E_RUN = RunUploadSchema.parse({
   },
   selection: {
     cells: [
-      { model: "model-atlas", effort: "low" },
-      { model: "model-atlas", effort: "medium" },
-      { model: "model-atlas", effort: "high" },
-      { model: "model-boreal", effort: "medium" },
-      { model: "model-boreal", effort: "high" },
+      { model: "gpt-5.6-atlas", effort: "low" },
+      { model: "gpt-5.6-atlas", effort: "medium" },
+      { model: "gpt-5.6-atlas", effort: "high" },
+      { model: "gpt-5.6-boreal", effort: "medium" },
+      { model: "gpt-5.6-boreal", effort: "high" },
     ],
-    warmupPerModel: 0,
-    measuredRounds: 2,
-    maxTurns: 12,
+    warmupPerModel: 1,
+    measuredRounds: 3,
+    maxTurns: 17,
+    series: "gpt-5.6",
   },
   samples: [
-    sample("01900000-0000-7000-8000-000000000101", "model-atlas", "low", {
+    sample("01900000-0000-7000-8000-000000000101", "gpt-5.6-atlas", "low", {
       firstVisibleTextMs: 500,
       lastVisibleTextMs: 5_500,
       totalLatencyMs: 7_000,
       outputTokens: 500,
       reasoningOutputTokens: 50,
     }),
-    sample("01900000-0000-7000-8000-000000000102", "model-atlas", "low", {
+    sample("01900000-0000-7000-8000-000000000102", "gpt-5.6-atlas", "low", {
       round: 2,
       firstVisibleTextMs: 700,
       lastVisibleTextMs: 6_700,
@@ -104,14 +105,14 @@ export const E2E_RUN = RunUploadSchema.parse({
       outputTokens: 620,
       reasoningOutputTokens: 120,
     }),
-    sample("01900000-0000-7000-8000-000000000104", "model-atlas", "high", {
+    sample("01900000-0000-7000-8000-000000000104", "gpt-5.6-atlas", "high", {
       firstVisibleTextMs: 1_000,
       lastVisibleTextMs: 9_000,
       totalLatencyMs: 11_000,
       outputTokens: 800,
       reasoningOutputTokens: 200,
     }),
-    sample("01900000-0000-7000-8000-000000000105", "model-atlas", "high", {
+    sample("01900000-0000-7000-8000-000000000105", "gpt-5.6-atlas", "high", {
       round: 2,
       firstVisibleTextMs: 1_200,
       lastVisibleTextMs: 10_200,
@@ -119,7 +120,7 @@ export const E2E_RUN = RunUploadSchema.parse({
       outputTokens: 850,
       reasoningOutputTokens: 200,
     }),
-    sample("01900000-0000-7000-8000-000000000106", "model-boreal", "medium", {
+    sample("01900000-0000-7000-8000-000000000106", "gpt-5.6-boreal", "medium", {
       firstVisibleTextMs: 900,
       lastVisibleTextMs: 6_900,
       totalLatencyMs: 8_500,
@@ -127,7 +128,7 @@ export const E2E_RUN = RunUploadSchema.parse({
       reasoningOutputTokens: 100,
       toolEventCount: 1,
     }),
-    sample("01900000-0000-7000-8000-000000000107", "model-boreal", "high", {
+    sample("01900000-0000-7000-8000-000000000107", "gpt-5.6-boreal", "high", {
       firstVisibleTextMs: 2_000,
       lastVisibleTextMs: 2_000,
       totalLatencyMs: 6_000,

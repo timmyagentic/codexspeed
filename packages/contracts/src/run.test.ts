@@ -177,6 +177,63 @@ const catalogEfforts = [
   "ultra",
 ] as const;
 
+const seriesComparableEfforts = [
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
+
+function createSeriesRunFixture(): RunUpload {
+  const run = createRunFixture();
+  const sampleTemplate = run.samples[0]!;
+  Object.assign(run, { mode: "series" });
+  Object.assign(run.selection, { series: "gpt-5.6" });
+  run.catalog.models = ["sol", "terra", "luna"].map((suffix) => ({
+    id: `gpt-5.6-${suffix}`,
+    displayName: `GPT-5.6 ${suffix}`,
+    hidden: false,
+    defaultEffort: "medium" as const,
+    supportedEfforts: [...seriesComparableEfforts, "ultra" as const],
+  }));
+  run.selection.cells = run.catalog.models.flatMap((model) =>
+    seriesComparableEfforts.map((effort) => ({ model: model.id, effort })),
+  );
+  run.selection.warmupPerModel = 1;
+  run.selection.measuredRounds = 3;
+  run.selection.maxTurns = 48;
+  let sampleSuffix = 0x100;
+  const sample = (
+    model: string,
+    effort: RunUpload["samples"][number]["effort"],
+    phase: RunUpload["samples"][number]["phase"],
+    round: number,
+  ): RunUpload["samples"][number] => ({
+    ...sampleTemplate,
+    sampleId: `01900000-0000-7000-8000-${(sampleSuffix++)
+      .toString(16)
+      .padStart(12, "0")}`,
+    model,
+    effort,
+    phase,
+    round,
+    attempt: 1,
+    toolEventCount: 0,
+  });
+  run.samples = [
+    ...run.catalog.models.map((model) =>
+      sample(model.id, model.defaultEffort, "warmup", 0),
+    ),
+    ...Array.from({ length: 3 }, (_, roundIndex) =>
+      run.selection.cells.map((cell) =>
+        sample(cell.model, cell.effort, "measured", roundIndex + 1),
+      ),
+    ).flat(),
+  ];
+  return run;
+}
+
 describe("RunUploadSchema", () => {
   it("accepts the canonical fixture and rejects unknown data", () => {
     expect(RunUploadSchema.parse(createRunFixture()).schemaVersion).toBe(1);
@@ -225,6 +282,237 @@ describe("RunUploadSchema", () => {
       validatorPassed: true,
     });
     expect(fixture.samples[1]).toMatchObject({ toolEventCount: 1 });
+  });
+
+  it("accepts a complete standard series run and keeps legacy smoke runs valid", () => {
+    const seriesRun = createSeriesRunFixture();
+    const legacyFullRun = createRunFixture();
+    legacyFullRun.mode = "full";
+
+    expect(RunUploadSchema.parse(seriesRun)).toMatchObject({
+      mode: "series",
+      selection: {
+        series: "gpt-5.6",
+        warmupPerModel: 1,
+        measuredRounds: 3,
+        cells: expect.arrayContaining([
+          { model: "gpt-5.6-sol", effort: "low" },
+          { model: "gpt-5.6-terra", effort: "max" },
+          { model: "gpt-5.6-luna", effort: "xhigh" },
+        ]),
+      },
+    });
+    expect(RunUploadSchema.parse(createRunFixture()).mode).toBe("smoke");
+    expect(RunUploadSchema.parse(legacyFullRun).mode).toBe("full");
+  });
+
+  it("includes an exact model ID match in a complete series matrix", () => {
+    const run = createSeriesRunFixture();
+    run.status = "partial";
+    run.samples = [];
+    run.catalog.models.push({
+      id: "gpt-5.6",
+      displayName: "GPT-5.6",
+      hidden: false,
+      defaultEffort: "medium",
+      supportedEfforts: [...seriesComparableEfforts],
+    });
+    run.selection.cells.push(
+      ...seriesComparableEfforts.map((effort) => ({
+        model: "gpt-5.6",
+        effort,
+      })),
+    );
+    run.selection.maxTurns = 64;
+
+    expect(RunUploadSchema.parse(run).selection.cells).toHaveLength(20);
+  });
+
+  it("rejects a series with no visible comparable catalog cells", () => {
+    const run = createSeriesRunFixture();
+    run.catalog.models.forEach((model) => {
+      model.hidden = true;
+    });
+
+    const result = RunUploadSchema.safeParse(run);
+
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("expected series validation to fail");
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message:
+            "series must resolve to at least one comparable catalog cell",
+        }),
+      ]),
+    );
+  });
+
+  it.each([
+    {
+      name: "an empty completed sample schedule",
+      mutate: (run: RunUpload) => {
+        run.samples = [];
+      },
+      message: "completed series runs must contain every planned sample",
+    },
+    {
+      name: "a missing completed sample",
+      mutate: (run: RunUpload) => {
+        run.samples.pop();
+      },
+      message: "completed series runs must contain every planned sample",
+    },
+    {
+      name: "a duplicate schedule slot",
+      mutate: (run: RunUpload) => {
+        run.selection.maxTurns = 49;
+        run.samples.push({
+          ...run.samples[0]!,
+          sampleId: "01900000-0000-7000-8000-000000000999",
+        });
+      },
+      message: "series samples must not repeat a planned schedule slot",
+    },
+    {
+      name: "a warm-up outside the requested series",
+      mutate: (run: RunUpload) => {
+        run.catalog.models.push({
+          id: "gpt-5.60-orbit",
+          displayName: "GPT-5.60 Orbit",
+          hidden: false,
+          defaultEffort: "low",
+          supportedEfforts: ["low"],
+        });
+        Object.assign(run.samples[0]!, {
+          model: "gpt-5.60-orbit",
+          effort: "low",
+        });
+      },
+      message: "series sample does not belong to the standard schedule",
+    },
+    {
+      name: "a retry attempt",
+      mutate: (run: RunUpload) => {
+        run.samples[0]!.attempt = 2;
+      },
+      message: "series samples must use attempt one",
+    },
+    {
+      name: "a max-turn guard below the standard schedule",
+      mutate: (run: RunUpload) => {
+        run.selection.maxTurns = 47;
+      },
+      message: "series maxTurns must cover the standard schedule",
+    },
+  ])("rejects $name", ({ mutate, message }) => {
+    const run = createSeriesRunFixture();
+    mutate(run);
+
+    const result = RunUploadSchema.safeParse(run);
+
+    expect(result.success).toBe(false);
+    if (result.success)
+      throw new Error("expected sample schedule validation to fail");
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ message })]),
+    );
+  });
+
+  it("accepts an incomplete but valid partial series schedule", () => {
+    const run = createSeriesRunFixture();
+    run.status = "partial";
+    run.samples = run.samples.slice(0, 7);
+
+    expect(RunUploadSchema.parse(run).samples).toHaveLength(7);
+  });
+
+  it.each([
+    {
+      name: "series mode without a series identifier",
+      mutate: (run: RunUpload) => {
+        Object.assign(run, { mode: "series" });
+        delete (run.selection as typeof run.selection & { series?: string })
+          .series;
+      },
+    },
+    {
+      name: "a series identifier on smoke mode",
+      mutate: (run: RunUpload) => {
+        Object.assign(run, { mode: "smoke" });
+      },
+    },
+    {
+      name: "a series identifier on full mode",
+      mutate: (run: RunUpload) => {
+        Object.assign(run, { mode: "full" });
+      },
+    },
+    {
+      name: "a non-standard series warm-up count",
+      mutate: (run: RunUpload) => {
+        run.selection.warmupPerModel = 0;
+      },
+    },
+    {
+      name: "a non-standard series measured-round count",
+      mutate: (run: RunUpload) => {
+        run.selection.measuredRounds = 2;
+      },
+    },
+    {
+      name: "an omitted comparable effort",
+      mutate: (run: RunUpload) => {
+        run.selection.cells = run.selection.cells.filter(
+          (cell) => !(cell.model === "gpt-5.6-sol" && cell.effort === "max"),
+        );
+      },
+    },
+    {
+      name: "an omitted visible series model",
+      mutate: (run: RunUpload) => {
+        run.selection.cells = run.selection.cells.filter(
+          (cell) => cell.model !== "gpt-5.6-luna",
+        );
+      },
+    },
+    {
+      name: "a model outside the hyphen-bounded series prefix",
+      mutate: (run: RunUpload) => {
+        run.catalog.models.push({
+          id: "gpt-5.60-orbit",
+          displayName: "GPT-5.60 Orbit",
+          hidden: false,
+          defaultEffort: "medium",
+          supportedEfforts: ["low", "medium", "high", "xhigh", "max"],
+        });
+        run.selection.cells.push({ model: "gpt-5.60-orbit", effort: "low" });
+      },
+    },
+    {
+      name: "a hidden series model",
+      mutate: (run: RunUpload) => {
+        run.catalog.models.push({
+          id: "gpt-5.6-hidden",
+          displayName: "GPT-5.6 Hidden",
+          hidden: true,
+          defaultEffort: "medium",
+          supportedEfforts: ["medium"],
+        });
+        run.selection.cells.push({ model: "gpt-5.6-hidden", effort: "medium" });
+      },
+    },
+    {
+      name: "Ultra in a series matrix",
+      mutate: (run: RunUpload) => {
+        Object.assign(run.selection.cells[0]!, { effort: "ultra" });
+      },
+    },
+  ])("rejects $name", ({ mutate }) => {
+    const run = createSeriesRunFixture();
+    mutate(run);
+
+    expect(() => RunUploadSchema.parse(run)).toThrow();
   });
 
   it("accepts ultra as an exact catalog-supported effort", () => {

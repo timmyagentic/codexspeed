@@ -14,13 +14,17 @@ strictly allow-listed artifact is signed and uploaded.
   file mutation, and interactive approval.
 - The exact public prompt is [`prompt-v1.md`](prompt-v1.md). The artifact records
   its identifier and SHA-256, never the response or reasoning text.
-- A full run performs one unmeasured warm-up per selected model at its catalog
-  default effort. If that default is Ultra or otherwise non-comparable, the
-  warm-up uses the first selected comparable effort. Three measured rounds
+- A series or full run performs one unmeasured warm-up per selected model at its
+  catalog default effort. If that default is Ultra or otherwise non-comparable,
+  the warm-up uses the first selected comparable effort. Three measured rounds
   follow, each using a seeded Fisher–Yates shuffle; all turns execute
   sequentially.
 - A smoke run covers an explicitly selected subset for integration verification.
   It must not be represented as full-matrix evidence.
+- A series run covers every visible comparable cell whose model identifier is
+  either the exact requested series or begins with that series followed by a
+  hyphen. It must not be represented as evidence for models outside that family.
+- A full run covers every visible comparable cell in the discovered catalog.
 
 Every invocation requires `--max-turns`. The runner prints and validates the
 complete plan before it can start a turn. The MVP does not retry automatically.
@@ -55,9 +59,9 @@ execution, API traffic is small, and platform limits fail closed. CodexSpeed
 does not upgrade plans or enable paid overages.
 
 Benchmark turns use the publisher's existing Codex/ChatGPT allowance. The
-runner's plan preview, explicit maximum-turn guard, subset filters, and smoke
-mode bound that local consumption. CodexSpeed cannot inspect or change billing
-settings or enable paid top-ups.
+runner's plan preview, explicit maximum-turn guard, subset and series filters,
+and smoke mode bound that local consumption. CodexSpeed cannot inspect or
+change billing settings or enable paid top-ups.
 
 ## Reference implementations
 

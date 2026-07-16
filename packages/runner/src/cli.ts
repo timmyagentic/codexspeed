@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { pathToFileURL } from "node:url";
+import { RunSeriesIdSchema } from "@codexspeed/contracts";
 import { runDoctor } from "./commands/doctor.js";
 import { runPlan } from "./commands/plan.js";
 import { runBenchmark, type RunCommandDependencies } from "./commands/run.js";
@@ -33,6 +34,7 @@ type ParsedSuiteOptions = {
   warmup: boolean;
   models: string[];
   efforts: ComparableEffort[];
+  series?: string;
   out?: string;
 };
 
@@ -91,6 +93,7 @@ function parseSuiteOptions(
   let seed = 0;
   let warmup = true;
   let out: string | undefined;
+  let series: string | undefined;
   const models: string[] = [];
   const efforts: ComparableEffort[] = [];
 
@@ -138,6 +141,18 @@ function parseSuiteOptions(
         efforts.push(value as ComparableEffort);
         index += 1;
         break;
+      case "--series": {
+        if (series !== undefined) {
+          throw new CliUsageError("--series may be used once");
+        }
+        const parsed = RunSeriesIdSchema.safeParse(value);
+        if (!parsed.success) {
+          throw new CliUsageError("--series needs one valid identifier");
+        }
+        series = parsed.data;
+        index += 1;
+        break;
+      }
       case "--no-warmup":
         warmup = false;
         break;
@@ -158,6 +173,19 @@ function parseSuiteOptions(
     throw new CliUsageError("--out is required");
   if (command === "plan" && out !== undefined)
     throw new CliUsageError("--out is only valid for run");
+  if (series !== undefined) {
+    if (models.length > 0 || efforts.length > 0) {
+      throw new CliUsageError(
+        "--series cannot be combined with --model or --effort",
+      );
+    }
+    if (rounds !== 3) {
+      throw new CliUsageError("--series requires --rounds 3");
+    }
+    if (!warmup) {
+      throw new CliUsageError("--series requires warm-up");
+    }
+  }
   return {
     maxTurns,
     rounds,
@@ -165,6 +193,7 @@ function parseSuiteOptions(
     warmup,
     models,
     efforts,
+    ...(series === undefined ? {} : { series }),
     ...(out === undefined ? {} : { out }),
   };
 }

@@ -12,9 +12,8 @@ endorsed by OpenAI. “Codex” is used only to identify the product being measu
 
 ## Status
 
-The reproducible local runner, signed publication API, and display dashboard are
-implemented. Production deployment and the first genuine smoke publication are
-the final release step. Read the public
+The reproducible local runner, signed publication API, display dashboard, and
+genuine production smoke publication are live. Read the public
 [`methodology`](docs/methodology/README.md) and the approved
 [`design`](docs/superpowers/specs/2026-07-16-codexspeed-design.md).
 
@@ -50,6 +49,28 @@ corepack pnpm --filter @codexspeed/runner codexspeed -- run \
   --max-turns 1 \
   --out /tmp/codexspeed-run.json
 ```
+
+A series run measures every visible comparable effort in one bounded model
+family. It always uses one warm-up per selected model and three measured rounds;
+it cannot be combined with model/effort filters, `--no-warmup`, or a different
+round count. Plan first, then run with the same arguments:
+
+```sh
+corepack pnpm --filter @codexspeed/runner codexspeed -- plan \
+  --series gpt-5.6 \
+  --seed 13 \
+  --max-turns 48
+
+corepack pnpm --filter @codexspeed/runner codexspeed -- run \
+  --series gpt-5.6 \
+  --seed 13 \
+  --max-turns 48 \
+  --out /tmp/codexspeed-gpt-5.6.json
+```
+
+The exact-or-hyphen-prefix boundary selects `gpt-5.6` and `gpt-5.6-*`, but not
+`gpt-5.60-*`. Hidden models and Ultra are excluded. If the live catalog changes,
+the no-turn plan shows the new exact cell and turn count before execution.
 
 The artifact is compact schema-validated JSON with owner-only permissions. It
 contains benchmark evidence, not prompt/response text, credentials, local

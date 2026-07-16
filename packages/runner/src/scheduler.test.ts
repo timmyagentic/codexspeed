@@ -28,6 +28,48 @@ const catalog: DiscoveredCatalog = {
   ],
 };
 
+const seriesEfforts = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
+
+const seriesCatalog: DiscoveredCatalog = {
+  models: [
+    ...["sol", "terra", "luna"].map((suffix) => ({
+      id: `gpt-5.6-${suffix}`,
+      displayName: `GPT-5.6 ${suffix}`,
+      hidden: false,
+      defaultEffort: suffix === "sol" ? ("low" as const) : ("medium" as const),
+      supportedEfforts: [...seriesEfforts],
+    })),
+    {
+      id: "gpt-5.60-orbit",
+      displayName: "GPT-5.60 Orbit",
+      hidden: false,
+      defaultEffort: "medium",
+      supportedEfforts: ["low", "medium", "high", "xhigh", "max"],
+    },
+    {
+      id: "gpt-5.6foo",
+      displayName: "GPT-5.6 Foo",
+      hidden: false,
+      defaultEffort: "medium",
+      supportedEfforts: ["medium"],
+    },
+    {
+      id: "gpt-5.6-hidden",
+      displayName: "GPT-5.6 Hidden",
+      hidden: true,
+      defaultEffort: "medium",
+      supportedEfforts: ["medium"],
+    },
+    {
+      id: "gpt-5.6-ultra-only",
+      displayName: "GPT-5.6 Ultra Only",
+      hidden: false,
+      defaultEffort: "ultra",
+      supportedEfforts: ["ultra"],
+    },
+  ],
+};
+
 describe("buildSchedule", () => {
   it("builds one default-effort warm-up per visible model and three measured rounds", () => {
     const schedule = buildSchedule(catalog, { seed: 42, maxTurns: 20 });
@@ -45,6 +87,113 @@ describe("buildSchedule", () => {
     expect(schedule.entries).toHaveLength(11);
     expect(schedule.warmupPerModel).toBe(1);
     expect(schedule.measuredRounds).toBe(3);
+    expect(schedule.mode).toBe("full");
+  });
+
+  it("builds the complete standard GPT-5.6 series with a bounded prefix", () => {
+    const schedule = buildSchedule(seriesCatalog, {
+      seed: 13,
+      maxTurns: 48,
+      series: "gpt-5.6",
+    });
+
+    expect(schedule).toMatchObject({
+      mode: "series",
+      series: "gpt-5.6",
+      warmupPerModel: 1,
+      measuredRounds: 3,
+    });
+    expect(schedule.cells).toHaveLength(15);
+    expect(new Set(schedule.cells.map((cell) => cell.model))).toEqual(
+      new Set(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]),
+    );
+    expect(schedule.cells.every((cell) => cell.effort !== ("ultra" as never))).toBe(true);
+    expect(schedule.entries.filter((entry) => entry.phase === "warmup")).toHaveLength(3);
+    expect(schedule.entries.filter((entry) => entry.phase === "measured")).toHaveLength(45);
+    expect(schedule.entries).toHaveLength(48);
+
+    for (let round = 1; round <= 3; round += 1) {
+      expect(
+        schedule.entries
+          .filter((entry) => entry.phase === "measured" && entry.round === round)
+          .map(({ model, effort }) => `${model}/${effort}`)
+          .sort(),
+      ).toEqual(schedule.cells.map(({ model, effort }) => `${model}/${effort}`).sort());
+    }
+  });
+
+  it("uses the same deterministic order for repeated series plans", () => {
+    const first = buildSchedule(seriesCatalog, {
+      seed: 13,
+      maxTurns: 48,
+      series: "gpt-5.6",
+    });
+    const repeated = buildSchedule(seriesCatalog, {
+      seed: 13,
+      maxTurns: 48,
+      series: "gpt-5.6",
+    });
+
+    expect(repeated.entries).toEqual(first.entries);
+  });
+
+  it("matches a model whose ID exactly equals the series", () => {
+    const exactCatalog: DiscoveredCatalog = {
+      models: [
+        {
+          id: "gpt-5.6",
+          displayName: "GPT-5.6",
+          hidden: false,
+          defaultEffort: "medium",
+          supportedEfforts: ["low", "medium"],
+        },
+      ],
+    };
+
+    const schedule = buildSchedule(exactCatalog, {
+      seed: 1,
+      maxTurns: 7,
+      series: "gpt-5.6",
+    });
+
+    expect(schedule.cells).toEqual([
+      { model: "gpt-5.6", effort: "low" },
+      { model: "gpt-5.6", effort: "medium" },
+    ]);
+    expect(schedule.mode).toBe("series");
+  });
+
+  it.each([
+    [
+      { seed: 13, maxTurns: 48, series: "gpt-5.6", models: ["gpt-5.6-sol"] },
+      "series cannot be combined with model or effort filters",
+    ],
+    [
+      { seed: 13, maxTurns: 48, series: "gpt-5.6", efforts: ["low" as const] },
+      "series cannot be combined with model or effort filters",
+    ],
+    [
+      { seed: 13, maxTurns: 48, series: "gpt-5.6", rounds: 2 },
+      "series requires three measured rounds",
+    ],
+    [
+      { seed: 13, maxTurns: 48, series: "gpt-5.6", warmup: false },
+      "series requires warm-up",
+    ],
+    [
+      { seed: 13, maxTurns: 48, series: "missing" },
+      "series contains no comparable models",
+    ],
+    [
+      { seed: 13, maxTurns: 48, series: "gpt 5.6" },
+      "series identifier is invalid",
+    ],
+    [
+      { seed: 13, maxTurns: 47, series: "gpt-5.6" },
+      "planned 48 turns exceeds --max-turns 47",
+    ],
+  ])("rejects invalid series options %#", (options, message) => {
+    expect(() => buildSchedule(seriesCatalog, options)).toThrow(message);
   });
 
   it("uses a deterministic seeded Fisher-Yates order independently inside each round", () => {
@@ -82,6 +231,7 @@ describe("buildSchedule", () => {
     });
 
     expect(schedule).toMatchObject({
+      mode: "smoke",
       cells: [{ model: "model-alpha", effort: "low" }],
       warmupPerModel: 0,
       measuredRounds: 1,

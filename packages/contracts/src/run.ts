@@ -29,6 +29,10 @@ const ModelIdSchema = z
   .min(1)
   .max(128)
   .regex(/^[a-z0-9][a-z0-9._/-]*$/i);
+export const RunSeriesIdSchema = ModelIdSchema;
+export function modelMatchesSeries(modelId: string, series: string): boolean {
+  return modelId === series || modelId.startsWith(`${series}-`);
+}
 const UtcTimestampSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
@@ -122,6 +126,7 @@ const SelectionSchema = z
     warmupPerModel: z.number().finite().int().nonnegative().max(10),
     measuredRounds: z.number().finite().int().positive().max(100),
     maxTurns: z.number().finite().int().positive().max(MAX_SAMPLES),
+    series: RunSeriesIdSchema.optional(),
   })
   .strict()
   .superRefine((selection, context) => {
@@ -221,7 +226,7 @@ const RunUploadObjectSchema = z
     codexCliVersion: z.string().trim().min(1).max(64),
     startedAt: UtcTimestampSchema,
     endedAt: UtcTimestampSchema,
-    mode: z.enum(["full", "smoke"]),
+    mode: z.enum(["full", "smoke", "series"]),
     seed: NonNegativeIntegerSchema,
     status: z.enum(["completed", "partial", "failed"]),
     prompt: PromptSchema,
@@ -283,6 +288,148 @@ export const RunUploadSchema = RunUploadObjectSchema.superRefine(
       run.catalog.models.map((model) => [model.id, model]),
     );
 
+    const series = run.selection.series;
+    if ((run.mode === "series") !== (series !== undefined)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "series mode and selection.series must be present together",
+        path: series === undefined ? ["selection", "series"] : ["mode"],
+      });
+    }
+
+    if (series !== undefined) {
+      if (run.selection.warmupPerModel !== 1) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "series runs require one warm-up per model",
+          path: ["selection", "warmupPerModel"],
+        });
+      }
+      if (run.selection.measuredRounds !== 3) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "series runs require three measured rounds",
+          path: ["selection", "measuredRounds"],
+        });
+      }
+
+      const comparableEfforts = new Set<string>(ComparableEffortSchema.options);
+      const seriesModels = run.catalog.models
+        .filter(
+          (model) => !model.hidden && modelMatchesSeries(model.id, series),
+        )
+        .map((model) => ({
+          model,
+          efforts: model.supportedEfforts.filter((effort) =>
+            comparableEfforts.has(effort),
+          ),
+        }))
+        .filter(({ efforts }) => efforts.length > 0);
+      const expectedCellKeys = new Set(
+        seriesModels.flatMap(({ model, efforts }) =>
+          efforts.map((effort) => `${model.id}\u0000${effort}`),
+        ),
+      );
+      const selectedCellKeys = new Set(
+        run.selection.cells.map((cell) => `${cell.model}\u0000${cell.effort}`),
+      );
+
+      if (expectedCellKeys.size === 0) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "series must resolve to at least one comparable catalog cell",
+          path: ["selection", "series"],
+        });
+      }
+      for (const expectedCellKey of expectedCellKeys) {
+        if (!selectedCellKeys.has(expectedCellKey)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              "series selection must include every comparable catalog cell",
+            path: ["selection", "cells"],
+          });
+          break;
+        }
+      }
+      run.selection.cells.forEach((cell, index) => {
+        const key = `${cell.model}\u0000${cell.effort}`;
+        if (!expectedCellKeys.has(key)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              "series selection must contain only comparable series cells",
+            path: ["selection", "cells", index],
+          });
+        }
+      });
+
+      const expectedSampleKeys = new Set<string>();
+      for (const { model, efforts } of seriesModels) {
+        const warmupEffort = comparableEfforts.has(model.defaultEffort)
+          ? model.defaultEffort
+          : efforts[0]!;
+        expectedSampleKeys.add(
+          `warmup\u0000${model.id}\u0000${warmupEffort}\u00000`,
+        );
+        for (const effort of efforts) {
+          for (let round = 1; round <= 3; round += 1) {
+            expectedSampleKeys.add(
+              `measured\u0000${model.id}\u0000${effort}\u0000${round}`,
+            );
+          }
+        }
+      }
+
+      if (run.selection.maxTurns < expectedSampleKeys.size) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "series maxTurns must cover the standard schedule",
+          path: ["selection", "maxTurns"],
+        });
+      }
+
+      const recordedSampleKeys = new Set<string>();
+      run.samples.forEach((sample, index) => {
+        const key = `${sample.phase}\u0000${sample.model}\u0000${sample.effort}\u0000${sample.round}`;
+        if (sample.attempt !== 1) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "series samples must use attempt one",
+            path: ["samples", index, "attempt"],
+          });
+        }
+        if (!expectedSampleKeys.has(key)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "series sample does not belong to the standard schedule",
+            path: ["samples", index],
+          });
+        }
+        if (recordedSampleKeys.has(key)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "series samples must not repeat a planned schedule slot",
+            path: ["samples", index],
+          });
+        }
+        recordedSampleKeys.add(key);
+      });
+
+      if (
+        run.status === "completed" &&
+        (recordedSampleKeys.size !== expectedSampleKeys.size ||
+          [...expectedSampleKeys].some((key) => !recordedSampleKeys.has(key)))
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "completed series runs must contain every planned sample",
+          path: ["samples"],
+        });
+      }
+    }
+
     run.selection.cells.forEach((cell, index) => {
       const model = catalogById.get(cell.model);
       if (model === undefined) {
@@ -324,6 +471,14 @@ export const RunUploadSchema = RunUploadObjectSchema.superRefine(
         });
       }
     });
+
+    if (run.samples.length > run.selection.maxTurns) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "sample count must not exceed selection.maxTurns",
+        path: ["samples"],
+      });
+    }
 
     const sampleIds = run.samples.map((sample) => sample.sampleId);
     if (new Set(sampleIds).size !== sampleIds.length) {

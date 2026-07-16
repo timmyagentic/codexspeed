@@ -13,6 +13,9 @@ test("renders all metrics and compares two measured cells with distribution evid
   await expect(
     page.getByRole("heading", { name: "Latest benchmark" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("definition").filter({ hasText: "GPT-5.6 Series run" }),
+  ).toBeVisible();
   const streamMatrix = page.getByRole("table", {
     name: "Visible stream TPS by model and reasoning effort",
   });
@@ -94,16 +97,19 @@ test("supports keyboard traversal and history-to-detail navigation with exact so
 
   await page.getByRole("link", { name: "Runs", exact: true }).click();
   await expect(page).toHaveURL(/\/runs$/u);
-  await page.getByRole("link", { name: /Smoke run/iu }).click();
+  await page.getByRole("link", { name: /GPT-5\.6 Series run/iu }).click();
   await expect(page).toHaveURL(new RegExp(`/runs/${E2E_RUN.runId}$`, "u"));
+  await expect(
+    page.getByRole("heading", { name: "GPT-5.6 Series run" }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Samples" })).toBeVisible();
   await expect(
     page.getByText("Tool event", { exact: true }).first(),
   ).toBeVisible();
-  const source = page.getByRole("link", { name: "Runner source v0.1.0 →" });
+  const source = page.getByRole("link", { name: "Runner source v0.1.3 →" });
   await expect(source).toHaveAttribute(
     "href",
-    "https://github.com/timmyagentic/codexspeed/tree/v0.1.0/packages/runner",
+    "https://github.com/timmyagentic/codexspeed/tree/v0.1.3/packages/runner",
   );
 
   await page.reload();
@@ -133,9 +139,13 @@ test("renders the complete public methodology and deployed third-party notices",
   ).toBeVisible();
   await expect(page.getByText(/Ultra.*excluded/iu)).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Smoke, full, and exclusions" }),
+    page.getByRole("heading", {
+      name: "Smoke, series, full, and exclusions",
+    }),
   ).toBeVisible();
-  await expect(page.getByText(/A smoke run.*a full run/iu)).toBeVisible();
+  await expect(
+    page.getByText(/A smoke run.*A series run.*A full run/iu),
+  ).toBeVisible();
   await expect(page.getByText(/publisher key signature only/iu)).toBeVisible();
   await expect(page.getByText(/does not retry automatically/iu)).toBeVisible();
   await expect(

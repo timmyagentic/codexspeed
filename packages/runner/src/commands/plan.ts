@@ -14,6 +14,7 @@ export type SuiteCommandOptions = {
   warmup: boolean;
   models: readonly string[];
   efforts: readonly RunSample["effort"][];
+  series?: string;
 };
 
 function schedulerOptions(options: SuiteCommandOptions): ScheduleOptions {
@@ -24,6 +25,7 @@ function schedulerOptions(options: SuiteCommandOptions): ScheduleOptions {
     warmup: options.warmup,
     ...(options.models.length === 0 ? {} : { models: options.models }),
     ...(options.efforts.length === 0 ? {} : { efforts: options.efforts }),
+    ...(options.series === undefined ? {} : { series: options.series }),
   };
 }
 
@@ -33,6 +35,7 @@ export function formatPlan(schedule: BenchmarkSchedule): string[] {
   return [
     `Seed: ${schedule.seed}`,
     `Mode: ${schedule.mode}`,
+    ...(schedule.series === undefined ? [] : [`Series: ${schedule.series}`]),
     `Comparable cells: ${schedule.cells.length}`,
     ...schedule.cells.map(
       (cell, index) => `Cell ${index + 1}: ${cell.model} / ${cell.effort}`,

@@ -29,8 +29,10 @@ attempt requires a new explicit invocation and artifact.
 - Ultra reasoning is excluded because its subagent behavior is not a comparable
   single-agent reasoning-effort setting. Optional fast tiers are excluded from
   the default service-tier comparison.
-- Smoke runs prove a narrow integration path. Only a full run covers every
-  discovered comparable cell and the configured measured rounds.
+- Smoke runs prove a narrow integration path. A series run covers every
+  comparable cell only within its exact requested model family. Only a full run
+  covers every discovered comparable cell. Series and full runs both use one
+  warm-up per model and three measured rounds.
 - Runner Verified proves only the configured publisher-key signature. It is not
   quality certification or OpenAI endorsement.
 
