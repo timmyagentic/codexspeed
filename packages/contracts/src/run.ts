@@ -317,9 +317,7 @@ export const RunUploadSchema = RunUploadObjectSchema.superRefine(
       const expectedCellKeys = new Set(
         run.catalog.models
           .filter(
-            (model) =>
-              !model.hidden &&
-              modelMatchesSeries(model.id, series),
+            (model) => !model.hidden && modelMatchesSeries(model.id, series),
           )
           .flatMap((model) =>
             model.supportedEfforts
@@ -328,15 +326,14 @@ export const RunUploadSchema = RunUploadObjectSchema.superRefine(
           ),
       );
       const selectedCellKeys = new Set(
-        run.selection.cells.map(
-          (cell) => `${cell.model}\u0000${cell.effort}`,
-        ),
+        run.selection.cells.map((cell) => `${cell.model}\u0000${cell.effort}`),
       );
 
       if (expectedCellKeys.size === 0) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "series must resolve to at least one comparable catalog cell",
+          message:
+            "series must resolve to at least one comparable catalog cell",
           path: ["selection", "series"],
         });
       }
@@ -344,7 +341,8 @@ export const RunUploadSchema = RunUploadObjectSchema.superRefine(
         if (!selectedCellKeys.has(expectedCellKey)) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "series selection must include every comparable catalog cell",
+            message:
+              "series selection must include every comparable catalog cell",
             path: ["selection", "cells"],
           });
           break;
@@ -355,7 +353,8 @@ export const RunUploadSchema = RunUploadObjectSchema.superRefine(
         if (!expectedCellKeys.has(key)) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "series selection must contain only comparable series cells",
+            message:
+              "series selection must contain only comparable series cells",
             path: ["selection", "cells", index],
           });
         }

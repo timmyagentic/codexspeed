@@ -177,7 +177,13 @@ const catalogEfforts = [
   "ultra",
 ] as const;
 
-const seriesComparableEfforts = ["low", "medium", "high", "xhigh", "max"] as const;
+const seriesComparableEfforts = [
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
 
 function createSeriesRunFixture(): RunUpload {
   const run = createRunFixture();
@@ -304,7 +310,8 @@ describe("RunUploadSchema", () => {
     expect(result.error.issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          message: "series must resolve to at least one comparable catalog cell",
+          message:
+            "series must resolve to at least one comparable catalog cell",
         }),
       ]),
     );
@@ -315,7 +322,8 @@ describe("RunUploadSchema", () => {
       name: "series mode without a series identifier",
       mutate: (run: RunUpload) => {
         Object.assign(run, { mode: "series" });
-        delete (run.selection as typeof run.selection & { series?: string }).series;
+        delete (run.selection as typeof run.selection & { series?: string })
+          .series;
       },
     },
     {

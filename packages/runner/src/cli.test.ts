@@ -116,7 +116,15 @@ describe("codexspeed CLI", () => {
       "Error: --series may be used once",
     ],
     [
-      ["plan", "--max-turns", "48", "--series", "gpt-5.6", "--model", "gpt-5.6-sol"],
+      [
+        "plan",
+        "--max-turns",
+        "48",
+        "--series",
+        "gpt-5.6",
+        "--model",
+        "gpt-5.6-sol",
+      ],
       "Error: --series cannot be combined with --model or --effort",
     ],
     [
@@ -294,8 +302,12 @@ describe("codexspeed CLI", () => {
     expect(captured.stdout).toContain("Warm-up turns: 3");
     expect(captured.stdout).toContain("Measured turns: 45");
     expect(captured.stdout).toContain("Total turns: 48 / max 48");
-    expect(captured.stdout.filter((line) => line.startsWith("Turn "))).toHaveLength(48);
-    expect(captured.stdout.some((line) => line.startsWith("Starting turn"))).toBe(false);
+    expect(
+      captured.stdout.filter((line) => line.startsWith("Turn ")),
+    ).toHaveLength(48);
+    expect(
+      captured.stdout.some((line) => line.startsWith("Starting turn")),
+    ).toBe(false);
     expect(await readdir(directory)).toEqual(["auth.json"]);
   });
 
@@ -505,8 +517,12 @@ describe("codexspeed CLI", () => {
     });
     expect(run.selection.cells).toHaveLength(15);
     expect(run.samples).toHaveLength(48);
-    expect(run.samples.filter((sample) => sample.phase === "warmup")).toHaveLength(3);
-    expect(run.samples.filter((sample) => sample.phase === "measured")).toHaveLength(45);
+    expect(
+      run.samples.filter((sample) => sample.phase === "warmup"),
+    ).toHaveLength(3);
+    expect(
+      run.samples.filter((sample) => sample.phase === "measured"),
+    ).toHaveLength(45);
     for (const cell of run.selection.cells) {
       expect(
         run.samples.filter(
@@ -517,11 +533,15 @@ describe("codexspeed CLI", () => {
         ),
       ).toHaveLength(3);
     }
-    expect(run.samples.every((sample) => sample.effort !== ("ultra" as never))).toBe(true);
+    expect(
+      run.samples.every((sample) => sample.effort !== ("ultra" as never)),
+    ).toBe(true);
     expect((await stat(artifactPath)).mode & 0o777).toBe(0o600);
     expect(captured.stdout).toContain("Mode: series");
     expect(captured.stdout).toContain("Series: gpt-5.6");
-    expect(captured.stdout).toContain("Finished turn 48/48: completed; remaining 0");
+    expect(captured.stdout).toContain(
+      "Finished turn 48/48: completed; remaining 0",
+    );
   });
 
   it("fully terminates a timed-out App Server and reconnects before the next sequential sample", async () => {
