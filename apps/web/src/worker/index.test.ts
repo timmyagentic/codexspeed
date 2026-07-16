@@ -76,9 +76,13 @@ function seriesRunWithId(suffix: number): RunUpload {
     toolEventCount: 0,
   });
   run.samples = [
-    ...run.catalog.models.map((model) =>
-      sample(model.id, model.defaultEffort, "warmup", 0),
-    ),
+    ...run.catalog.models.map((model) => {
+      const effort =
+        model.defaultEffort === "ultra"
+          ? SERIES_EFFORTS[0]
+          : model.defaultEffort;
+      return sample(model.id, effort, "warmup", 0);
+    }),
     ...Array.from({ length: 3 }, (_, roundIndex) =>
       run.selection.cells.map((cell) =>
         sample(cell.model, cell.effort, "measured", roundIndex + 1),
