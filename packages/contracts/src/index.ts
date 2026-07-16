@@ -17,6 +17,8 @@ export {
 } from "./public.js";
 export {
   CanonicalSemverSchema,
+  modelMatchesSeries,
+  RunSeriesIdSchema,
   RunSampleSchema,
   RunUploadSchema,
   type RunSample,

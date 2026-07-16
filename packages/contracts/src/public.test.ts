@@ -71,6 +71,7 @@ function createRunListMetadata(): RunListMetadata {
     startedAt: run.startedAt,
     endedAt: run.endedAt,
     mode: run.mode,
+    series: null,
     status: run.status,
     publication,
     summary: {
@@ -152,6 +153,28 @@ describe("RunListMetadataSchema", () => {
     const metadata = createRunListMetadata();
 
     expect(RunListMetadataSchema.parse(metadata)).toEqual(metadata);
+  });
+
+  it("accepts a bounded series identifier only for series metadata", () => {
+    const metadata = createRunListMetadata();
+    Object.assign(metadata, { mode: "series", series: "gpt-5.6" });
+
+    expect(RunListMetadataSchema.parse(metadata)).toMatchObject({
+      mode: "series",
+      series: "gpt-5.6",
+    });
+
+    const missingSeries = createRunListMetadata();
+    Object.assign(missingSeries, { mode: "series" });
+    expect(() => RunListMetadataSchema.parse(missingSeries)).toThrow();
+
+    const seriesOnSmoke = createRunListMetadata();
+    Object.assign(seriesOnSmoke, { series: "gpt-5.6" });
+    expect(() => RunListMetadataSchema.parse(seriesOnSmoke)).toThrow();
+
+    const malformedSeries = createRunListMetadata();
+    Object.assign(malformedSeries, { mode: "series", series: "GPT 5.6" });
+    expect(() => RunListMetadataSchema.parse(malformedSeries)).toThrow();
   });
 
   it("rejects unknown data, malformed hashes, and non-canonical timestamps", () => {

@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { RunUploadSchema, type RunUpload } from "./run.js";
+import {
+  RunSeriesIdSchema,
+  RunUploadSchema,
+  type RunUpload,
+} from "./run.js";
 
 const MAX_SUMMARY_CELLS = 200;
 const MAX_LIST_PAGE_SIZE = 50;
@@ -125,6 +129,7 @@ const RunListIdentitySchema = RunUploadObjectSchema.pick({
   .strict();
 
 export const RunListMetadataSchema = RunListIdentitySchema.extend({
+  series: RunSeriesIdSchema.nullable(),
   publication: RunPublicationSchema,
   summary: z
     .object({
@@ -132,7 +137,17 @@ export const RunListMetadataSchema = RunListIdentitySchema.extend({
       reliability: ReliabilitySchema,
     })
     .strict(),
-}).strict();
+})
+  .strict()
+  .superRefine((metadata, context) => {
+    if ((metadata.mode === "series") !== (metadata.series !== null)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "series mode and series metadata must be present together",
+        path: metadata.series === null ? ["series"] : ["mode"],
+      });
+    }
+  });
 export type RunListMetadata = z.infer<typeof RunListMetadataSchema>;
 
 const CursorSchema = z

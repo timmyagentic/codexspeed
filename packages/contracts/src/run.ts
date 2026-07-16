@@ -29,6 +29,10 @@ const ModelIdSchema = z
   .min(1)
   .max(128)
   .regex(/^[a-z0-9][a-z0-9._/-]*$/i);
+export const RunSeriesIdSchema = ModelIdSchema;
+export function modelMatchesSeries(modelId: string, series: string): boolean {
+  return modelId === series || modelId.startsWith(`${series}-`);
+}
 const UtcTimestampSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
@@ -122,6 +126,7 @@ const SelectionSchema = z
     warmupPerModel: z.number().finite().int().nonnegative().max(10),
     measuredRounds: z.number().finite().int().positive().max(100),
     maxTurns: z.number().finite().int().positive().max(MAX_SAMPLES),
+    series: RunSeriesIdSchema.optional(),
   })
   .strict()
   .superRefine((selection, context) => {
@@ -221,7 +226,7 @@ const RunUploadObjectSchema = z
     codexCliVersion: z.string().trim().min(1).max(64),
     startedAt: UtcTimestampSchema,
     endedAt: UtcTimestampSchema,
-    mode: z.enum(["full", "smoke"]),
+    mode: z.enum(["full", "smoke", "series"]),
     seed: NonNegativeIntegerSchema,
     status: z.enum(["completed", "partial", "failed"]),
     prompt: PromptSchema,
@@ -282,6 +287,80 @@ export const RunUploadSchema = RunUploadObjectSchema.superRefine(
     const catalogById = new Map(
       run.catalog.models.map((model) => [model.id, model]),
     );
+
+    const series = run.selection.series;
+    if ((run.mode === "series") !== (series !== undefined)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "series mode and selection.series must be present together",
+        path: series === undefined ? ["selection", "series"] : ["mode"],
+      });
+    }
+
+    if (series !== undefined) {
+      if (run.selection.warmupPerModel !== 1) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "series runs require one warm-up per model",
+          path: ["selection", "warmupPerModel"],
+        });
+      }
+      if (run.selection.measuredRounds !== 3) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "series runs require three measured rounds",
+          path: ["selection", "measuredRounds"],
+        });
+      }
+
+      const comparableEfforts = new Set<string>(ComparableEffortSchema.options);
+      const expectedCellKeys = new Set(
+        run.catalog.models
+          .filter(
+            (model) =>
+              !model.hidden &&
+              modelMatchesSeries(model.id, series),
+          )
+          .flatMap((model) =>
+            model.supportedEfforts
+              .filter((effort) => comparableEfforts.has(effort))
+              .map((effort) => `${model.id}\u0000${effort}`),
+          ),
+      );
+      const selectedCellKeys = new Set(
+        run.selection.cells.map(
+          (cell) => `${cell.model}\u0000${cell.effort}`,
+        ),
+      );
+
+      if (expectedCellKeys.size === 0) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "series must resolve to at least one comparable catalog cell",
+          path: ["selection", "series"],
+        });
+      }
+      for (const expectedCellKey of expectedCellKeys) {
+        if (!selectedCellKeys.has(expectedCellKey)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "series selection must include every comparable catalog cell",
+            path: ["selection", "cells"],
+          });
+          break;
+        }
+      }
+      run.selection.cells.forEach((cell, index) => {
+        const key = `${cell.model}\u0000${cell.effort}`;
+        if (!expectedCellKeys.has(key)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "series selection must contain only comparable series cells",
+            path: ["selection", "cells", index],
+          });
+        }
+      });
+    }
 
     run.selection.cells.forEach((cell, index) => {
       const model = catalogById.get(cell.model);
