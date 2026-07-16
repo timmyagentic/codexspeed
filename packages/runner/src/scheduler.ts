@@ -1,4 +1,9 @@
-import type { RunSample, RunUpload } from "@codexspeed/contracts";
+import {
+  modelMatchesSeries,
+  RunSeriesIdSchema,
+  type RunSample,
+  type RunUpload,
+} from "@codexspeed/contracts";
 import type { DiscoveredCatalog } from "./catalog.js";
 
 export type ScheduleCell = RunUpload["selection"]["cells"][number];
@@ -16,10 +21,12 @@ export type ScheduleOptions = {
   warmup?: boolean;
   models?: readonly string[];
   efforts?: readonly RunSample["effort"][];
+  series?: string;
 };
 
 export type BenchmarkSchedule = {
-  mode: "full" | "smoke";
+  mode: "full" | "smoke" | "series";
+  series?: string;
   seed: number;
   maxTurns: number;
   warmupPerModel: number;
@@ -78,10 +85,29 @@ export function buildSchedule(
     throw new RangeError("rounds must be an integer from 1 through 100");
   }
   const warmup = options.warmup ?? true;
+  const parsedSeries =
+    options.series === undefined
+      ? undefined
+      : RunSeriesIdSchema.safeParse(options.series);
+  if (parsedSeries !== undefined && !parsedSeries.success) {
+    throw new RangeError("series identifier is invalid");
+  }
+  const series = parsedSeries?.data;
   const modelFilter =
     options.models === undefined || options.models.length === 0 ? null : new Set(options.models);
   const effortFilter =
     options.efforts === undefined || options.efforts.length === 0 ? null : new Set(options.efforts);
+  if (series !== undefined) {
+    if (modelFilter !== null || effortFilter !== null) {
+      throw new RangeError("series cannot be combined with model or effort filters");
+    }
+    if (rounds !== 3) {
+      throw new RangeError("series requires three measured rounds");
+    }
+    if (!warmup) {
+      throw new RangeError("series requires warm-up");
+    }
+  }
   if (
     modelFilter !== null &&
     [...modelFilter].some(
@@ -99,7 +125,12 @@ export function buildSchedule(
     throw new RangeError("model filter contains an unavailable model");
   }
   const cells: ScheduleCell[] = catalog.models.flatMap((model) => {
-    if (model.hidden || (modelFilter !== null && !modelFilter.has(model.id))) return [];
+    if (
+      model.hidden ||
+      (series !== undefined && !modelMatchesSeries(model.id, series)) ||
+      (modelFilter !== null && !modelFilter.has(model.id))
+    )
+      return [];
     return model.supportedEfforts.flatMap((effort) =>
       COMPARABLE_EFFORTS.has(effort as RunSample["effort"]) &&
       (effortFilter === null || effortFilter.has(effort as RunSample["effort"]))
@@ -114,6 +145,9 @@ export function buildSchedule(
     throw new RangeError("effort filter contains an unavailable effort");
   }
   if (cells.length === 0) {
+    if (series !== undefined) {
+      throw new RangeError("series contains no comparable models");
+    }
     throw new RangeError("selection contains no comparable cells");
   }
   const selectedModels = catalog.models.filter(
@@ -156,7 +190,12 @@ export function buildSchedule(
 
   return {
     mode:
-      warmup && rounds === 3 && modelFilter === null && effortFilter === null ? "full" : "smoke",
+      series !== undefined
+        ? "series"
+        : warmup && rounds === 3 && modelFilter === null && effortFilter === null
+          ? "full"
+          : "smoke",
+    ...(series === undefined ? {} : { series }),
     seed: options.seed,
     maxTurns: options.maxTurns,
     warmupPerModel: warmup ? 1 : 0,
