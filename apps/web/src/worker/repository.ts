@@ -1,9 +1,10 @@
-import type {
-  PublicRunSummary,
-  RunListMetadata,
-  RunListResponse,
-  RunPublication,
-  RunUpload,
+import {
+  RunSeriesIdSchema,
+  type PublicRunSummary,
+  type RunListMetadata,
+  type RunListResponse,
+  type RunPublication,
+  type RunUpload,
 } from "@codexspeed/contracts";
 
 import { ProblemError } from "./problem.js";
@@ -42,6 +43,7 @@ type RunListRow = {
   runner_version: string;
   schema_version: number;
   selected_cells: number;
+  series: string | null;
   started_at: string;
   status: string;
   suite_version: string;
@@ -142,10 +144,21 @@ function rowToStoredPublicRun(row: RunRow): StoredPublicRunResponse {
 }
 
 function mode(value: string): RunUpload["mode"] {
-  if (value !== "full" && value !== "smoke") {
+  if (value !== "full" && value !== "smoke" && value !== "series") {
     throw storedDataError();
   }
   return value;
+}
+
+function series(value: string | null): RunListMetadata["series"] {
+  if (value === null) {
+    return null;
+  }
+  const result = RunSeriesIdSchema.safeParse(value);
+  if (!result.success) {
+    throw storedDataError();
+  }
+  return result.data;
 }
 
 function status(value: string): RunUpload["status"] {
@@ -163,15 +176,21 @@ function schemaVersion(value: number): RunUpload["schemaVersion"] {
 }
 
 function listRowToMetadata(row: RunListRow): RunListMetadata {
+  const parsedMode = mode(row.mode);
+  const parsedSeries = series(row.series);
+  if ((parsedMode === "series") !== (parsedSeries !== null)) {
+    throw storedDataError();
+  }
   return {
     codexCliVersion: row.codex_cli_version,
     endedAt: row.ended_at,
-    mode: mode(row.mode),
+    mode: parsedMode,
     protocolVersion: row.protocol_version,
     publication: validatePublication(row),
     runId: row.run_id,
     runnerVersion: row.runner_version,
     schemaVersion: schemaVersion(row.schema_version),
+    series: parsedSeries,
     startedAt: row.started_at,
     status: status(row.status),
     suiteVersion: row.suite_version,
@@ -382,6 +401,7 @@ const LIST_COLUMNS = `
   run_id, schema_version, payload_sha256, suite_version, protocol_version,
   runner_version, codex_cli_version, started_at, ended_at, status, published_at,
   json_extract(public_payload_json, '$.mode') AS mode,
+  json_extract(public_payload_json, '$.selection.series') AS series,
   json_extract(summary_json, '$.coverage.selectedCells') AS selected_cells,
   json_extract(summary_json, '$.coverage.measuredCells') AS measured_cells,
   json_extract(summary_json, '$.coverage.unmeasuredCells') AS unmeasured_cells,

@@ -34,6 +34,31 @@ function runWithId(suffix: number): RunUpload {
   };
 }
 
+const SERIES_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+
+function seriesRunWithId(suffix: number): RunUpload {
+  const run = runWithId(suffix);
+  run.mode = "series";
+  run.catalog.models = ["sol", "terra", "luna"].map((model) => ({
+    id: `gpt-5.6-${model}`,
+    displayName: `GPT-5.6 ${model}`,
+    hidden: false,
+    defaultEffort: "medium" as const,
+    supportedEfforts: [...SERIES_EFFORTS, "ultra" as const],
+  }));
+  run.selection = {
+    cells: run.catalog.models.flatMap((model) =>
+      SERIES_EFFORTS.map((effort) => ({ effort, model: model.id })),
+    ),
+    maxTurns: 48,
+    measuredRounds: 3,
+    series: "gpt-5.6",
+    warmupPerModel: 1,
+  };
+  run.samples = [];
+  return run;
+}
+
 function decodeBase64Url(value: string): Uint8Array {
   const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
   const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
@@ -272,6 +297,50 @@ describe("public run API", () => {
     expect(conflictProblem.type).toBe("/problems/run_conflict");
   });
 
+  it("publishes a series run idempotently across create, list, latest, and detail", async () => {
+    const run = seriesRunWithId(6);
+    const body = JSON.stringify(run);
+
+    const created = await upload(run, body);
+    expect(created.status).toBe(201);
+    const createdDocument = await created.json<Record<string, unknown>>();
+    expect(createdDocument).toMatchObject({
+      run: {
+        mode: "series",
+        runId: run.runId,
+        selection: { series: "gpt-5.6" },
+      },
+    });
+
+    const duplicate = await upload(run, body);
+    expect(duplicate.status).toBe(200);
+    await expect(duplicate.json()).resolves.toEqual(createdDocument);
+
+    const detail = await SELF.fetch(`${API_ORIGIN}${RUNS_PATH}/${run.runId}`);
+    expect(detail.status).toBe(200);
+    await expect(detail.json()).resolves.toEqual(createdDocument);
+
+    const latest = await SELF.fetch(`${API_ORIGIN}/api/v1/latest`);
+    expect(latest.status).toBe(200);
+    await expect(latest.json()).resolves.toEqual({
+      ...createdDocument,
+      generation: 1,
+    });
+
+    const list = await SELF.fetch(`${API_ORIGIN}${RUNS_PATH}`);
+    expect(list.status).toBe(200);
+    await expect(list.json()).resolves.toMatchObject({
+      data: [
+        {
+          mode: "series",
+          runId: run.runId,
+          series: "gpt-5.6",
+        },
+      ],
+      nextCursor: null,
+    });
+  });
+
   it("returns the stored successful result when derived metrics code changes later", async () => {
     const run = runWithId(5);
     const body = JSON.stringify(run);
@@ -381,6 +450,7 @@ describe("public run API", () => {
         publishedAt: expect.stringMatching(PUBLISHED_AT_PATTERN),
       },
       runId: runs[2]!.runId,
+      series: null,
       status: "completed",
       summary: {
         coverage: summarizeRun(runs[2]!).coverage,
