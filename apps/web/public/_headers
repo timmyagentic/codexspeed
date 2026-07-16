@@ -15,6 +15,17 @@
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
 
+/local
+  Cache-Control: public, max-age=0, must-revalidate
+
+/run.sh
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: text/plain; charset=utf-8
+
+/run.ps1
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: text/plain; charset=utf-8
+
 /runs
   Cache-Control: public, max-age=0, must-revalidate
 

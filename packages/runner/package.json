@@ -1,10 +1,10 @@
 {
   "name": "@codexspeed/runner",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "bin": {
-    "codexspeed": "dist/src/cli.js"
+    "codexspeed": "dist/src/bin.js"
   },
   "exports": {
     ".": {
@@ -15,13 +15,14 @@
     }
   },
   "scripts": {
-    "build": "corepack pnpm --filter @codexspeed/contracts build && node ../../scripts/clean-package-dist.mjs && tsc && node --input-type=module --eval \"const runner = await import('@codexspeed/runner'); if (typeof runner.buildSchedule !== 'function') process.exit(1)\"",
-    "codexspeed": "node --enable-source-maps dist/src/cli.js",
+    "build": "corepack pnpm --filter @codexspeed/metrics build && node ../../scripts/clean-package-dist.mjs && tsc && node --input-type=module --eval \"const runner = await import('@codexspeed/runner'); if (typeof runner.buildSchedule !== 'function') process.exit(1)\"",
+    "codexspeed": "node --enable-source-maps dist/src/bin.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@codexspeed/contracts": "workspace:*"
+    "@codexspeed/contracts": "workspace:*",
+    "@codexspeed/metrics": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.20.1"

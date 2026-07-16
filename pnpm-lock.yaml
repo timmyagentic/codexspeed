@@ -29,6 +29,9 @@ importers:
       '@types/node':
         specifier: 22.20.1
         version: 22.20.1
+      esbuild:
+        specifier: 0.28.1
+        version: 0.28.1
       eslint:
         specifier: 10.7.0
         version: 10.7.0
@@ -126,6 +129,9 @@ importers:
       '@codexspeed/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@codexspeed/metrics':
+        specifier: workspace:*
+        version: link:../metrics
     devDependencies:
       '@types/node':
         specifier: 22.20.1

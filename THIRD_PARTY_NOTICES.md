@@ -1,11 +1,15 @@
 # Third-Party Notices
 
-CodexSpeed's production web bundle includes the following packages:
+CodexSpeed's web and command-line bundles include the following packages:
 
 - React 19.2.7 — MIT License
 - React DOM 19.2.7 — MIT License
 - Scheduler 0.27.0 — MIT License
 - Zod 3.25.76 — MIT License
+
+Portable command-line archives also contain a fixed Node.js runtime. Its
+complete upstream license and third-party notices are distributed inside each
+archive as `licenses/NODE-LICENSE`.
 
 ## React, React DOM, and Scheduler
 

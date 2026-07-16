@@ -1,7 +1,11 @@
 import type { DiscoveredCatalog } from "../catalog.js";
 import { discoverCatalog } from "../catalog.js";
 import { AppServerProtocolError, type AppServerClient } from "../app-server.js";
-import { RunnerRuntimeError, withIsolatedRuntime, type RuntimeOptions } from "../runtime.js";
+import {
+  RunnerRuntimeError,
+  withIsolatedRuntime,
+  type RuntimeOptions,
+} from "../runtime.js";
 
 const DOCTOR_INSTRUCTIONS =
   "Do not start a model turn. Do not use tools, commands, files, web search, MCP, plugins, skills, subagents, or environment access.";
@@ -14,7 +18,9 @@ function comparableCellCount(catalog: DiscoveredCatalog): number {
   return catalog.models.reduce(
     (total, model) =>
       total +
-      (model.hidden ? 0 : model.supportedEfforts.filter((effort) => effort !== "ultra").length),
+      (model.hidden
+        ? 0
+        : model.supportedEfforts.filter((effort) => effort !== "ultra").length),
     0,
   );
 }
@@ -39,23 +45,40 @@ async function verifyInstructionSafety(
     baseInstructions: DOCTOR_INSTRUCTIONS,
   });
   if (!isObject(response) || !isObject(response["thread"])) {
-    throw new AppServerProtocolError("doctor received an invalid thread response");
+    throw new AppServerProtocolError(
+      "doctor received an invalid thread response",
+    );
   }
   const sources = response["instructionSources"];
   if (!Array.isArray(sources) || sources.length !== 0) {
-    throw new AppServerProtocolError("doctor found benchmark instruction sources");
+    throw new AppServerProtocolError(
+      "doctor found benchmark instruction sources",
+    );
   }
 }
 
 function parseVersion(output: { stdout: string; stderr: string }): string {
-  const match = /\bcodex(?:-cli)?\s+([0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?)/i.exec(
-    `${output.stdout}\n${output.stderr}`,
-  );
-  if (match?.[1] === undefined) throw new RunnerRuntimeError("Codex CLI version is unavailable");
+  const match =
+    /\bcodex(?:-cli)?\s+([0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?)/i.exec(
+      `${output.stdout}\n${output.stderr}`,
+    );
+  if (match?.[1] === undefined)
+    throw new RunnerRuntimeError("Codex CLI version is unavailable");
   return match[1];
 }
 
 export async function runDoctor(options: RuntimeOptions): Promise<string[]> {
+  return (await inspectDoctor(options)).lines;
+}
+
+export type DoctorInspection = {
+  lines: string[];
+  catalog: DiscoveredCatalog;
+};
+
+export async function inspectDoctor(
+  options: RuntimeOptions,
+): Promise<DoctorInspection> {
   return withIsolatedRuntime(options, async (runtime) => {
     const version = parseVersion(await runtime.runCodex(["--version"]));
     const login = await runtime.runCodex(["login", "status"]);
@@ -68,20 +91,31 @@ export async function runDoctor(options: RuntimeOptions): Promise<string[]> {
       const catalog = await discoverCatalog(client);
       const comparableCells = comparableCellCount(catalog);
       if (comparableCells === 0) {
-        throw new AppServerProtocolError("model catalog has no comparable cells");
+        throw new AppServerProtocolError(
+          "model catalog has no comparable cells",
+        );
       }
       const safetyModel = catalog.models.find(
-        (model) => !model.hidden && model.supportedEfforts.some((effort) => effort !== "ultra"),
+        (model) =>
+          !model.hidden &&
+          model.supportedEfforts.some((effort) => effort !== "ultra"),
       )!;
-      await verifyInstructionSafety(client, runtime.workspacePath, safetyModel.id);
-      return [
-        `Codex CLI: ${version}`,
-        "ChatGPT login: ok",
-        "App Server protocol: ok",
-        `Model catalog: ${catalog.models.length} models, ${comparableCells} comparable cell${comparableCells === 1 ? "" : "s"}`,
-        "Instruction sources: none",
-        "Doctor: ready",
-      ];
+      await verifyInstructionSafety(
+        client,
+        runtime.workspacePath,
+        safetyModel.id,
+      );
+      return {
+        catalog,
+        lines: [
+          `Codex CLI: ${version}`,
+          "ChatGPT login: ok",
+          "App Server protocol: ok",
+          `Model catalog: ${catalog.models.length} models, ${comparableCells} comparable cell${comparableCells === 1 ? "" : "s"}`,
+          "Instruction sources: none",
+          "Doctor: ready",
+        ],
+      };
     } finally {
       await client.close();
     }

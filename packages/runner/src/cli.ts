@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import { pathToFileURL } from "node:url";
+import { createInterface } from "node:readline/promises";
 import { RunSeriesIdSchema } from "@codexspeed/contracts";
 import { runDoctor } from "./commands/doctor.js";
+import { MeasureCommandError, runMeasure } from "./commands/measure.js";
 import { runPlan } from "./commands/plan.js";
 import { runBenchmark, type RunCommandDependencies } from "./commands/run.js";
 import {
@@ -12,6 +13,7 @@ import {
 import { AppServerError } from "./app-server.js";
 import { RunnerRuntimeError, type RuntimeOptions } from "./runtime.js";
 import { PublisherError } from "./publisher.js";
+import { RUNNER_VERSION } from "./version.js";
 
 export type CliIo = {
   stdout(line: string): void;
@@ -22,6 +24,7 @@ export type CliDependencies = RuntimeOptions &
   RunCommandDependencies &
   PublishCommandDependencies & {
     io?: CliIo;
+    readInput?: (question: string) => Promise<string | null>;
   };
 
 type ComparableEffort =
@@ -38,7 +41,18 @@ type ParsedSuiteOptions = {
   out?: string;
 };
 
+type ParsedMeasureOptions = {
+  model?: string;
+  effort?: ComparableEffort;
+  rounds: number;
+  out?: string;
+  acceptTurns?: number;
+};
+
 type ParsedCommand =
+  | { name: "help" }
+  | { name: "version" }
+  | { name: "measure"; options: ParsedMeasureOptions }
   | { name: "doctor" }
   | { name: "plan"; options: ParsedSuiteOptions }
   | { name: "run"; options: ParsedSuiteOptions & { out: string } }
@@ -53,6 +67,27 @@ const defaultIo: CliIo = {
   stdout: (line) => process.stdout.write(`${line}\n`),
   stderr: (line) => process.stderr.write(`${line}\n`),
 };
+
+const HELP_LINES = [
+  `CodexSpeed ${RUNNER_VERSION}`,
+  "",
+  "Usage:",
+  "  codexspeed             Start the guided local speed test",
+  "  codexspeed measure     Test this device and network",
+  "  codexspeed doctor      Check Codex without a model turn",
+  "  codexspeed plan        Print an advanced bounded schedule",
+  "  codexspeed run         Run an advanced benchmark",
+  "  codexspeed publish     Publish with the owner's signing key",
+  "",
+  "Measure options:",
+  "  --model ID             Choose a visible Codex model",
+  "  --effort VALUE         Choose a supported reasoning effort",
+  "  --rounds N             Measured rounds, 1-10 (default: 3)",
+  "  --out FILE             Save to this local JSON file",
+  "  --accept-turns N        Non-interactive exact-turn confirmation",
+  "",
+  "The guided test runs locally and never uploads a result automatically.",
+];
 
 const COMPARABLE_EFFORTS = new Set<ComparableEffort>([
   "none",
@@ -198,8 +233,102 @@ function parseSuiteOptions(
   };
 }
 
+function parseMeasureOptions(
+  arguments_: readonly string[],
+): ParsedMeasureOptions {
+  let model: string | undefined;
+  let effort: ComparableEffort | undefined;
+  let rounds = 3;
+  let out: string | undefined;
+  let acceptTurns: number | undefined;
+
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const option = arguments_[index]!;
+    const value = arguments_[index + 1];
+    switch (option) {
+      case "--model":
+        if (
+          value === undefined ||
+          value.length === 0 ||
+          value.startsWith("--") ||
+          model !== undefined
+        ) {
+          throw new CliUsageError("--model needs one value");
+        }
+        model = value;
+        index += 1;
+        break;
+      case "--effort":
+        if (
+          value === undefined ||
+          !COMPARABLE_EFFORTS.has(value as ComparableEffort) ||
+          effort !== undefined
+        ) {
+          throw new CliUsageError("--effort needs one comparable value");
+        }
+        effort = value as ComparableEffort;
+        index += 1;
+        break;
+      case "--rounds":
+        rounds = integerOption(value, "--rounds", 1, 10);
+        index += 1;
+        break;
+      case "--out":
+        if (
+          value === undefined ||
+          value.length === 0 ||
+          value.startsWith("--") ||
+          out !== undefined
+        ) {
+          throw new CliUsageError("--out needs one value");
+        }
+        out = value;
+        index += 1;
+        break;
+      case "--accept-turns":
+        acceptTurns = integerOption(value, "--accept-turns", 1, 200);
+        index += 1;
+        break;
+      default:
+        throw new CliUsageError(`unknown measure option: ${option}`);
+    }
+  }
+
+  if (
+    acceptTurns !== undefined &&
+    (model === undefined || effort === undefined)
+  ) {
+    throw new CliUsageError(
+      "--accept-turns requires explicit --model and --effort",
+    );
+  }
+  return {
+    rounds,
+    ...(model === undefined ? {} : { model }),
+    ...(effort === undefined ? {} : { effort }),
+    ...(out === undefined ? {} : { out }),
+    ...(acceptTurns === undefined ? {} : { acceptTurns }),
+  };
+}
+
 function parseCommand(arguments_: readonly string[]): ParsedCommand {
   const [command, ...options] = arguments_;
+  if (command === undefined || command === "measure") {
+    return {
+      name: "measure",
+      options: parseMeasureOptions(command === undefined ? [] : options),
+    };
+  }
+  if (command === "help" || command === "--help" || command === "-h") {
+    if (options.length > 0) throw new CliUsageError("help accepts no options");
+    return { name: "help" };
+  }
+  if (command === "--version" || command === "-v") {
+    if (options.length > 0) {
+      throw new CliUsageError("version accepts no options");
+    }
+    return { name: "version" };
+  }
   if (command === "doctor") {
     if (options.length > 0)
       throw new CliUsageError("doctor accepts no options");
@@ -250,7 +379,9 @@ function parseCommand(arguments_: readonly string[]): ParsedCommand {
       },
     };
   }
-  throw new CliUsageError("command must be doctor, plan, run, or publish");
+  throw new CliUsageError(
+    "command must be measure, doctor, plan, run, publish, or help",
+  );
 }
 
 function safeFailure(error: unknown, fallback: string): string {
@@ -282,6 +413,31 @@ export async function runCli(
     }
     io.stderr("Error: invalid command arguments");
     return 2;
+  }
+  if (command.name === "help") {
+    for (const line of HELP_LINES) io.stdout(line);
+    return 0;
+  }
+  if (command.name === "version") {
+    io.stdout(`CodexSpeed ${RUNNER_VERSION}`);
+    return 0;
+  }
+  if (command.name === "measure") {
+    const readInput = dependencies.readInput ?? defaultReadInput;
+    try {
+      return await runMeasure(
+        command.options,
+        { ...dependencies, readInput },
+        io,
+      );
+    } catch (error) {
+      if (error instanceof MeasureCommandError) {
+        io.stderr(`Error: ${error.message}`);
+        return error.exitCode;
+      }
+      io.stderr(safeFailure(error, "local benchmark failed"));
+      return 1;
+    }
   }
   if (command.name === "doctor") {
     try {
@@ -329,18 +485,18 @@ export async function runCli(
   return 2;
 }
 
-const entryPath = process.argv[1];
-if (
-  entryPath !== undefined &&
-  import.meta.url === pathToFileURL(entryPath).href
-) {
-  void runCli(process.argv.slice(2)).then(
-    (exitCode) => {
-      process.exitCode = exitCode;
-    },
-    () => {
-      defaultIo.stderr("Error: command failed");
-      process.exitCode = 1;
-    },
-  );
+async function defaultReadInput(question: string): Promise<string | null> {
+  if (!process.stdin.isTTY || !process.stderr.isTTY) return null;
+  const prompt = createInterface({
+    input: process.stdin,
+    output: process.stderr,
+    terminal: true,
+  });
+  try {
+    return await prompt.question(question);
+  } catch {
+    return null;
+  } finally {
+    prompt.close();
+  }
 }

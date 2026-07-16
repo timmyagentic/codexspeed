@@ -59,7 +59,7 @@ describe("codexspeed CLI", () => {
     ) as { version: string };
 
     expect(packageJson.version).toBe(RUNNER_VERSION);
-    expect(RUNNER_VERSION).toBe("0.1.3");
+    expect(RUNNER_VERSION).toBe("0.2.0");
   });
 
   it("creates canonical UUIDv7 identifiers with timestamp, version, and variant bits", () => {
@@ -205,7 +205,7 @@ describe("codexspeed CLI", () => {
     const doubled = output();
     expect(await runCli(["--", "--", "doctor"], { io: doubled.io })).toBe(2);
     expect(doubled.stderr).toEqual([
-      "Error: command must be doctor, plan, run, or publish",
+      "Error: command must be measure, doctor, plan, run, publish, or help",
     ]);
   });
 
@@ -506,7 +506,7 @@ describe("codexspeed CLI", () => {
     );
     expect(run).toMatchObject({
       mode: "series",
-      runnerVersion: "0.1.3",
+      runnerVersion: "0.2.0",
       seed: 13,
       selection: {
         series: "gpt-5.6",

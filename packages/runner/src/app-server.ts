@@ -19,6 +19,7 @@ export type AppServerClientOptions = {
   args?: readonly string[];
   cwd?: string;
   env?: NodeJS.ProcessEnv;
+  windowsVerbatimArguments?: boolean;
   requestTimeoutMs?: number;
   turnTimeoutMs?: number;
   maxStdoutLineBytes?: number;
@@ -135,6 +136,7 @@ export class AppServerClient {
       cwd: options.cwd,
       env: options.env,
       shell: false,
+      windowsVerbatimArguments: options.windowsVerbatimArguments,
       stdio: ["pipe", "pipe", "pipe"],
     });
     const client = new AppServerClient(child, options);

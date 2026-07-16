@@ -1,0 +1,223 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Verify tag and public launcher versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          test "$GITHUB_REF_NAME" = "v${version}"
+          grep -Fq "PUBLIC_RUNNER_VERSION = \"${version}\"" apps/web/src/app/local-runner.ts
+          grep -Fq "version=\"${version}\"" apps/web/public/run.sh
+          grep -Fq "\$Version = \"${version}\"" apps/web/public/run.ps1
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm exec playwright install --with-deps chromium
+      - run: corepack pnpm check
+
+  portable:
+    name: Portable ${{ matrix.platform }}-${{ matrix.arch }}
+    needs: verify
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos
+            arch: arm64
+            asset: codexspeed-${{ github.ref_name }}-macos-arm64.tar.gz
+          - runner: macos-15-intel
+            platform: macos
+            arch: x64
+            asset: codexspeed-${{ github.ref_name }}-macos-x64.tar.gz
+          - runner: ubuntu-24.04
+            platform: linux
+            arch: x64
+            asset: codexspeed-${{ github.ref_name }}-linux-x64.tar.gz
+          - runner: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            asset: codexspeed-${{ github.ref_name }}-linux-arm64.tar.gz
+          - runner: windows-2025
+            platform: windows
+            arch: x64
+            asset: codexspeed-${{ github.ref_name }}-windows-x64.zip
+          - runner: windows-11-arm
+            platform: windows
+            arch: arm64
+            asset: codexspeed-${{ github.ref_name }}-windows-arm64.zip
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm build:public-cli
+      - name: Stage portable package
+        run: >-
+          node scripts/stage-portable-release.mjs
+          --platform ${{ matrix.platform }}
+          --arch ${{ matrix.arch }}
+          --out artifacts/stage
+      - name: Smoke test Windows Codex npm shim
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/check-windows-portable.ps1 -Launcher artifacts/stage/codexspeed/bin/codexspeed.cmd
+      - name: Smoke test portable launcher
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          test "$(artifacts/stage/codexspeed/bin/codexspeed --version)" = "CodexSpeed ${version}"
+      - name: Smoke test portable launcher
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $Version = node -p "require('./package.json').version"
+          $Expected = "CodexSpeed $Version"
+          $Actual = & artifacts/stage/codexspeed/bin/codexspeed.cmd --version
+          if ($LASTEXITCODE -ne 0 -or $Actual.Trim() -ne $Expected.Trim()) {
+            throw "Portable launcher version check failed."
+          }
+      - name: Create portable archive
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          ASSET_NAME: ${{ matrix.asset }}
+        run: |
+          set -euo pipefail
+          tar -C artifacts/stage -czf "artifacts/${ASSET_NAME}" codexspeed
+          mkdir -p artifacts/extracted
+          tar -xzf "artifacts/${ASSET_NAME}" -C artifacts/extracted
+          version=$(node -p "require('./package.json').version")
+          test "$(artifacts/extracted/codexspeed/bin/codexspeed --version)" = "CodexSpeed ${version}"
+      - name: Create portable archive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          ASSET_NAME: ${{ matrix.asset }}
+        run: |
+          Compress-Archive -Path artifacts/stage/codexspeed -DestinationPath "artifacts/$env:ASSET_NAME"
+          Expand-Archive -Path "artifacts/$env:ASSET_NAME" -DestinationPath artifacts/extracted
+          $Version = node -p "require('./package.json').version"
+          $Expected = "CodexSpeed $Version"
+          $Actual = & artifacts/extracted/codexspeed/bin/codexspeed.cmd --version
+          if ($LASTEXITCODE -ne 0 -or $Actual.Trim() -ne $Expected.Trim()) {
+            throw "Portable archive smoke test failed."
+          }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: portable-${{ matrix.platform }}-${{ matrix.arch }}
+          path: artifacts/${{ matrix.asset }}
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  package:
+    name: Package npm runner and launchers
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm build:public-cli
+      - name: Pack npm runner and copy launchers
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          mkdir -p artifacts
+          npm pack --pack-destination artifacts
+          test -f "artifacts/codexspeed-${version}.tgz"
+          cp apps/web/public/run.sh apps/web/public/run.ps1 artifacts/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-metadata
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  release:
+    name: Publish verified release
+    needs:
+      - portable
+      - package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Verify assets and write checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          expected=(
+            "codexspeed-v${version}-macos-arm64.tar.gz"
+            "codexspeed-v${version}-macos-x64.tar.gz"
+            "codexspeed-v${version}-linux-x64.tar.gz"
+            "codexspeed-v${version}-linux-arm64.tar.gz"
+            "codexspeed-v${version}-windows-x64.zip"
+            "codexspeed-v${version}-windows-arm64.zip"
+            "codexspeed-${version}.tgz"
+            "run.sh"
+            "run.ps1"
+          )
+          for asset in "${expected[@]}"; do
+            test -s "release-assets/${asset}"
+          done
+          test "$(find release-assets -maxdepth 1 -type f | wc -l | tr -d ' ')" = "${#expected[@]}"
+          (
+            cd release-assets
+            sha256sum "${expected[@]}" > SHA256SUMS
+          )
+      - name: Create draft, upload assets, and publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          if gh release view "$tag" --json isDraft --jq .isDraft > release-draft-state 2>/dev/null; then
+            test "$(cat release-draft-state)" = "true"
+            gh release delete "$tag" --yes
+          fi
+          gh release create "$tag" --draft --verify-tag --title "CodexSpeed ${tag}" --generate-notes
+          gh release upload "$tag" release-assets/* --clobber
+          gh release edit "$tag" --draft=false

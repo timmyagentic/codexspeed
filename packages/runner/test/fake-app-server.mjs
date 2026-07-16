@@ -1,8 +1,12 @@
 import { createInterface } from "node:readline";
 
 const scenario = process.argv[2] ?? "normal";
-const expectedWorkspace = process.env.EXPECT_WORKSPACE ?? "/tmp/codexspeed-empty";
-const outputWords = Array.from({ length: 112 }, (_, index) => `benchmark${index}`).join(" ");
+const expectedWorkspace =
+  process.env.EXPECT_WORKSPACE ?? "/tmp/codexspeed-empty";
+const outputWords = Array.from(
+  { length: 112 },
+  (_, index) => `benchmark${index}`,
+).join(" ");
 const validOutput = [
   "## Summary",
   outputWords,
@@ -31,7 +35,7 @@ function assertInitialize(message) {
   if (
     info?.name !== "codexspeed" ||
     info?.title !== "CodexSpeed" ||
-    info?.version !== "0.1.3" ||
+    info?.version !== "0.2.0" ||
     message.params?.capabilities?.experimentalApi !== true ||
     Object.keys(message.params.capabilities).length !== 1
   ) {
@@ -130,7 +134,9 @@ function complete(status = "completed") {
         id: "turn-active",
         status,
         items,
-        ...(status === "failed" ? { error: { message: "synthetic failure" } } : {}),
+        ...(status === "failed"
+          ? { error: { message: "synthetic failure" } }
+          : {}),
       },
     },
   });
@@ -169,11 +175,12 @@ function streamTurn() {
     },
   });
 
-  const output = scenario === "bad-output"
-    ? validOutput.replace("## Trade-offs", "## Details")
-    : scenario === "short-output"
-      ? "## Summary\nshort\n## Reasoning\nshort\n## Trade-offs\nshort\n## Recommendation\nshort"
-      : validOutput;
+  const output =
+    scenario === "bad-output"
+      ? validOutput.replace("## Trade-offs", "## Details")
+      : scenario === "short-output"
+        ? "## Summary\nshort\n## Reasoning\nshort\n## Trade-offs\nshort\n## Recommendation\nshort"
+        : validOutput;
   const split = Math.floor(output.length / 2);
   send({
     method: "item/agentMessage/delta",
@@ -211,11 +218,21 @@ function streamTurn() {
     const item = commandItem();
     send({
       method: "item/started",
-      params: { threadId: "thread-active", turnId: "turn-active", item, startedAtMs: 1 },
+      params: {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        item,
+        startedAtMs: 1,
+      },
     });
     send({
       method: "item/completed",
-      params: { threadId: "thread-active", turnId: "turn-active", item, completedAtMs: 2 },
+      params: {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        item,
+        completedAtMs: 2,
+      },
     });
   }
 
@@ -231,10 +248,18 @@ function streamTurn() {
     });
   }
 
-  if (!new Set(["missing-usage", "late-usage", "failed-no-usage"]).has(scenario)) send(usage());
-  complete(new Set(["failed", "failed-no-usage"]).has(scenario) ? "failed" : "completed");
+  if (
+    !new Set(["missing-usage", "late-usage", "failed-no-usage"]).has(scenario)
+  )
+    send(usage());
+  complete(
+    new Set(["failed", "failed-no-usage"]).has(scenario)
+      ? "failed"
+      : "completed",
+  );
   if (scenario === "late-usage") setTimeout(() => send(usage()), 5);
-  if (scenario === "post-completion-usage") send(usage("thread-active", "turn-active", 777, 77));
+  if (scenario === "post-completion-usage")
+    send(usage("thread-active", "turn-active", 777, 77));
 }
 
 const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -250,7 +275,10 @@ input.on("line", (line) => {
   if (message.method === "initialize") {
     if (!assertInitialize(message)) return;
     initialized = true;
-    send({ id: message.id, result: { userAgent: "fake", platformFamily: "unix", platformOs: "test" } });
+    send({
+      id: message.id,
+      result: { userAgent: "fake", platformFamily: "unix", platformOs: "test" },
+    });
     return;
   }
 
@@ -282,7 +310,9 @@ input.on("line", (line) => {
       return;
     }
     if (scenario === "oversized") {
-      process.stdout.write(`${JSON.stringify({ id: message.id, result: { value: "x".repeat(5_000) } })}\n`);
+      process.stdout.write(
+        `${JSON.stringify({ id: message.id, result: { value: "x".repeat(5_000) } })}\n`,
+      );
       return;
     }
     if (scenario === "catalog") {
@@ -348,7 +378,9 @@ input.on("line", (line) => {
             hidden: false,
             isDefault: true,
             defaultReasoningEffort: "medium",
-            supportedReasoningEfforts: [{ reasoningEffort: "medium", description: "Medium" }],
+            supportedReasoningEfforts: [
+              { reasoningEffort: "medium", description: "Medium" },
+            ],
           },
         ],
         nextCursor: null,
@@ -362,7 +394,10 @@ input.on("line", (line) => {
       firstConcurrentRequest = message;
     } else {
       send({ id: message.id, result: { value: message.method } });
-      send({ id: firstConcurrentRequest.id, result: { value: firstConcurrentRequest.method } });
+      send({
+        id: firstConcurrentRequest.id,
+        result: { value: firstConcurrentRequest.method },
+      });
     }
     return;
   }
@@ -411,12 +446,20 @@ input.on("line", (line) => {
     }
     if (scenario === "turn-start-timeout") {
       setTimeout(() => {
-        send({ id: message.id, result: { turn: { id: "turn-active", status: "inProgress", items: [] } } });
+        send({
+          id: message.id,
+          result: {
+            turn: { id: "turn-active", status: "inProgress", items: [] },
+          },
+        });
         streamTurn();
       }, 100);
       return;
     }
-    send({ id: message.id, result: { turn: { id: "turn-active", status: "inProgress", items: [] } } });
+    send({
+      id: message.id,
+      result: { turn: { id: "turn-active", status: "inProgress", items: [] } },
+    });
     setTimeout(streamTurn, 5);
     return;
   }
