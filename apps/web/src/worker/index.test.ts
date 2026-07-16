@@ -9,7 +9,8 @@ const API_ORIGIN = "https://codexspeed.example";
 const RUNS_PATH = "/api/v1/runs";
 const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 const LIST_CACHE = "public, max-age=30, s-maxage=30";
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const PUBLISHED_AT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 
 type SignedBodyOptions = {
@@ -38,6 +39,7 @@ const SERIES_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 
 function seriesRunWithId(suffix: number): RunUpload {
   const run = runWithId(suffix);
+  const sampleTemplate = run.samples[0]!;
   run.mode = "series";
   run.catalog.models = ["sol", "terra", "luna"].map((model) => ({
     id: `gpt-5.6-${model}`,
@@ -55,7 +57,34 @@ function seriesRunWithId(suffix: number): RunUpload {
     series: "gpt-5.6",
     warmupPerModel: 1,
   };
-  run.samples = [];
+  let sampleSuffix = suffix * 1_000 + 100;
+  const sample = (
+    model: string,
+    effort: RunUpload["samples"][number]["effort"],
+    phase: RunUpload["samples"][number]["phase"],
+    round: number,
+  ): RunUpload["samples"][number] => ({
+    ...sampleTemplate,
+    sampleId: `01900000-0000-7000-8000-${(sampleSuffix++)
+      .toString()
+      .padStart(12, "0")}`,
+    model,
+    effort,
+    phase,
+    round,
+    attempt: 1,
+    toolEventCount: 0,
+  });
+  run.samples = [
+    ...run.catalog.models.map((model) =>
+      sample(model.id, model.defaultEffort, "warmup", 0),
+    ),
+    ...Array.from({ length: 3 }, (_, roundIndex) =>
+      run.selection.cells.map((cell) =>
+        sample(cell.model, cell.effort, "measured", roundIndex + 1),
+      ),
+    ).flat(),
+  ];
   return run;
 }
 
@@ -67,15 +96,22 @@ function decodeBase64Url(value: string): Uint8Array {
 
 function encodeBase64Url(value: ArrayBuffer): string {
   const binary = String.fromCharCode(...new Uint8Array(value));
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
 }
 
 function hex(value: ArrayBuffer): string {
-  return Array.from(new Uint8Array(value), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(value), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 async function payloadSha256(body: string): Promise<string> {
-  return hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body)));
+  return hex(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body)),
+  );
 }
 
 async function signedBodyRequest(options: SignedBodyOptions): Promise<Request> {
@@ -119,11 +155,17 @@ async function signedBodyRequest(options: SignedBodyOptions): Promise<Request> {
   });
 }
 
-async function signedRunRequest(run: RunUpload, body = JSON.stringify(run)): Promise<Request> {
+async function signedRunRequest(
+  run: RunUpload,
+  body = JSON.stringify(run),
+): Promise<Request> {
   return signedBodyRequest({ body, idempotencyKey: run.runId });
 }
 
-async function upload(run: RunUpload, body = JSON.stringify(run)): Promise<Response> {
+async function upload(
+  run: RunUpload,
+  body = JSON.stringify(run),
+): Promise<Response> {
   return SELF.fetch(await signedRunRequest(run, body));
 }
 
@@ -146,7 +188,10 @@ function expectJson(response: Response): void {
   expect(response.headers.get("Content-Type")).toBe("application/json");
 }
 
-async function expectProblem(response: Response, status: number): Promise<ProblemDocument> {
+async function expectProblem(
+  response: Response,
+  status: number,
+): Promise<ProblemDocument> {
   expect(response.status).toBe(status);
   expect(response.headers.get("Content-Type")).toBe("application/problem+json");
   expect(response.headers.get("Cache-Control")).toBe("no-store");
@@ -187,7 +232,10 @@ describe("public run API", () => {
     expectJson(health);
     expect(health.headers.get("Cache-Control")).toBe("no-store");
     expectSecurityHeaders(health);
-    await expect(health.json()).resolves.toEqual({ schemaVersion: 1, status: "ok" });
+    await expect(health.json()).resolves.toEqual({
+      schemaVersion: 1,
+      status: "ok",
+    });
 
     const latest = await SELF.fetch(`${API_ORIGIN}/api/v1/latest`);
     await expectProblem(latest, 404);
@@ -217,7 +265,9 @@ describe("public run API", () => {
         env.DB.prepare("DROP TABLE site_state"),
         env.DB.prepare("DROP TABLE runs"),
         env.DB.prepare("ALTER TABLE runs_compatible RENAME TO runs"),
-        env.DB.prepare("ALTER TABLE site_state_compatible RENAME TO site_state"),
+        env.DB.prepare(
+          "ALTER TABLE site_state_compatible RENAME TO site_state",
+        ),
       ]);
     }
   });
@@ -263,9 +313,12 @@ describe("public run API", () => {
     expectSecurityHeaders(found);
     await expect(found.json()).resolves.toEqual(createdDocument);
 
-    const notModified = await SELF.fetch(`${API_ORIGIN}${RUNS_PATH}/${run.runId}`, {
-      headers: { "If-None-Match": `"${expectedHash}"` },
-    });
+    const notModified = await SELF.fetch(
+      `${API_ORIGIN}${RUNS_PATH}/${run.runId}`,
+      {
+        headers: { "If-None-Match": `"${expectedHash}"` },
+      },
+    );
     expect(notModified.status).toBe(304);
     expect(notModified.headers.get("Cache-Control")).toBe(IMMUTABLE_CACHE);
     expect(notModified.headers.get("ETag")).toBe(`"${expectedHash}"`);
@@ -367,11 +420,20 @@ describe("public run API", () => {
   it("collapses concurrent byte-identical uploads to one immutable publication", async () => {
     const run = runWithId(3);
     const body = JSON.stringify(run);
-    const requests = await Promise.all([signedRunRequest(run, body), signedRunRequest(run, body)]);
-    const responses = await Promise.all(requests.map((request) => SELF.fetch(request)));
+    const requests = await Promise.all([
+      signedRunRequest(run, body),
+      signedRunRequest(run, body),
+    ]);
+    const responses = await Promise.all(
+      requests.map((request) => SELF.fetch(request)),
+    );
 
-    expect(responses.map((response) => response.status).sort()).toEqual([200, 201]);
-    const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM runs").first<number>("count");
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      200, 201,
+    ]);
+    const count = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM runs",
+    ).first<number>("count");
     expect(count).toBe(1);
     const state = await env.DB.prepare(
       "SELECT latest_run_id AS latestRunId, generation FROM site_state WHERE key = 'latest'",
@@ -382,11 +444,20 @@ describe("public run API", () => {
   it("resolves concurrent different bytes for one run ID as one create and one conflict", async () => {
     const firstRun = runWithId(4);
     const secondRun = { ...firstRun, seed: firstRun.seed + 1 };
-    const requests = await Promise.all([signedRunRequest(firstRun), signedRunRequest(secondRun)]);
-    const responses = await Promise.all(requests.map((request) => SELF.fetch(request)));
+    const requests = await Promise.all([
+      signedRunRequest(firstRun),
+      signedRunRequest(secondRun),
+    ]);
+    const responses = await Promise.all(
+      requests.map((request) => SELF.fetch(request)),
+    );
 
-    expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
-    const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM runs").first<number>("count");
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      201, 409,
+    ]);
+    const count = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM runs",
+    ).first<number>("count");
     expect(count).toBe(1);
     const generation = await env.DB.prepare(
       "SELECT generation FROM site_state WHERE key = 'latest'",
@@ -409,7 +480,10 @@ describe("public run API", () => {
     expect(latest.headers.get("Cache-Control")).toBe("no-store");
     expectSecurityHeaders(latest);
     const document = await latest.json();
-    expect(document).toMatchObject({ generation: 2, run: { runId: newRun.runId } });
+    expect(document).toMatchObject({
+      generation: 2,
+      run: { runId: newRun.runId },
+    });
     const etag = latest.headers.get("ETag");
     expect(etag).toMatch(/^"[0-9a-f]{64}"$/u);
 
@@ -470,7 +544,13 @@ describe("public run API", () => {
     expect(secondPage.data.map((item) => item.runId)).toEqual([runs[0]!.runId]);
     expect(secondPage.nextCursor).toBeNull();
 
-    for (const query of ["cursor=not%2Bbase64url", "cursor=", "limit=0", "limit=51", "limit=1.5"]) {
+    for (const query of [
+      "cursor=not%2Bbase64url",
+      "cursor=",
+      "limit=0",
+      "limit=51",
+      "limit=1.5",
+    ]) {
       const invalid = await SELF.fetch(`${API_ORIGIN}${RUNS_PATH}?${query}`);
       await expectProblem(invalid, 400);
     }
@@ -479,14 +559,20 @@ describe("public run API", () => {
   it("keeps malformed JSON at 400 and rejects every authenticated schema failure at 422", async () => {
     const run = runWithId(30);
     const malformed = await SELF.fetch(
-      await signedBodyRequest({ body: `{"runId":"${run.runId}"`, idempotencyKey: run.runId }),
+      await signedBodyRequest({
+        body: `{"runId":"${run.runId}"`,
+        idempotencyKey: run.runId,
+      }),
     );
     const malformedProblem = await expectProblem(malformed, 400);
     expect(malformedProblem.type).toBe("/problems/invalid_json");
 
     for (const document of [{ runId: run.runId }, {}, { runId: 1 }, []]) {
       const invalid = await SELF.fetch(
-        await signedBodyRequest({ body: JSON.stringify(document), idempotencyKey: run.runId }),
+        await signedBodyRequest({
+          body: JSON.stringify(document),
+          idempotencyKey: run.runId,
+        }),
       );
       const invalidProblem = await expectProblem(invalid, 422);
       expect(invalidProblem.type).toBe("/problems/invalid_run");
@@ -514,7 +600,9 @@ describe("public run API", () => {
     expect(document.type).toBe("/problems/browser_write_forbidden");
     expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
 
-    const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM runs").first<number>("count");
+    const count = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM runs",
+    ).first<number>("count");
     expect(count).toBe(0);
   });
 
@@ -522,7 +610,9 @@ describe("public run API", () => {
     await env.DB.prepare(
       "CREATE TRIGGER reject_latest BEFORE INSERT ON site_state BEGIN SELECT RAISE(ABORT, 'blocked'); END",
     ).run();
-    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     const run = runWithId(50);
 
     try {
@@ -530,7 +620,9 @@ describe("public run API", () => {
       const document = await expectProblem(response, 503);
       expect(document.type).toBe("/problems/service_unavailable");
 
-      const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM runs").first<number>("count");
+      const count = await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM runs",
+      ).first<number>("count");
       expect(count).toBe(0);
       expect(errorLog).toHaveBeenCalledTimes(1);
       const entry: unknown = JSON.parse(String(errorLog.mock.calls[0]?.[0]));

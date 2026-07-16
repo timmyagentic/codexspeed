@@ -187,6 +187,7 @@ const seriesComparableEfforts = [
 
 function createSeriesRunFixture(): RunUpload {
   const run = createRunFixture();
+  const sampleTemplate = run.samples[0]!;
   Object.assign(run, { mode: "series" });
   Object.assign(run.selection, { series: "gpt-5.6" });
   run.catalog.models = ["sol", "terra", "luna"].map((suffix) => ({
@@ -202,7 +203,34 @@ function createSeriesRunFixture(): RunUpload {
   run.selection.warmupPerModel = 1;
   run.selection.measuredRounds = 3;
   run.selection.maxTurns = 48;
-  run.samples = [];
+  let sampleSuffix = 0x100;
+  const sample = (
+    model: string,
+    effort: RunUpload["samples"][number]["effort"],
+    phase: RunUpload["samples"][number]["phase"],
+    round: number,
+  ): RunUpload["samples"][number] => ({
+    ...sampleTemplate,
+    sampleId: `01900000-0000-7000-8000-${(sampleSuffix++)
+      .toString(16)
+      .padStart(12, "0")}`,
+    model,
+    effort,
+    phase,
+    round,
+    attempt: 1,
+    toolEventCount: 0,
+  });
+  run.samples = [
+    ...run.catalog.models.map((model) =>
+      sample(model.id, model.defaultEffort, "warmup", 0),
+    ),
+    ...Array.from({ length: 3 }, (_, roundIndex) =>
+      run.selection.cells.map((cell) =>
+        sample(cell.model, cell.effort, "measured", roundIndex + 1),
+      ),
+    ).flat(),
+  ];
   return run;
 }
 
@@ -280,6 +308,8 @@ describe("RunUploadSchema", () => {
 
   it("includes an exact model ID match in a complete series matrix", () => {
     const run = createSeriesRunFixture();
+    run.status = "partial";
+    run.samples = [];
     run.catalog.models.push({
       id: "gpt-5.6",
       displayName: "GPT-5.6",
@@ -293,6 +323,7 @@ describe("RunUploadSchema", () => {
         effort,
       })),
     );
+    run.selection.maxTurns = 64;
 
     expect(RunUploadSchema.parse(run).selection.cells).toHaveLength(20);
   });
@@ -315,6 +346,85 @@ describe("RunUploadSchema", () => {
         }),
       ]),
     );
+  });
+
+  it.each([
+    {
+      name: "an empty completed sample schedule",
+      mutate: (run: RunUpload) => {
+        run.samples = [];
+      },
+      message: "completed series runs must contain every planned sample",
+    },
+    {
+      name: "a missing completed sample",
+      mutate: (run: RunUpload) => {
+        run.samples.pop();
+      },
+      message: "completed series runs must contain every planned sample",
+    },
+    {
+      name: "a duplicate schedule slot",
+      mutate: (run: RunUpload) => {
+        run.selection.maxTurns = 49;
+        run.samples.push({
+          ...run.samples[0]!,
+          sampleId: "01900000-0000-7000-8000-000000000999",
+        });
+      },
+      message: "series samples must not repeat a planned schedule slot",
+    },
+    {
+      name: "a warm-up outside the requested series",
+      mutate: (run: RunUpload) => {
+        run.catalog.models.push({
+          id: "gpt-5.60-orbit",
+          displayName: "GPT-5.60 Orbit",
+          hidden: false,
+          defaultEffort: "low",
+          supportedEfforts: ["low"],
+        });
+        Object.assign(run.samples[0]!, {
+          model: "gpt-5.60-orbit",
+          effort: "low",
+        });
+      },
+      message: "series sample does not belong to the standard schedule",
+    },
+    {
+      name: "a retry attempt",
+      mutate: (run: RunUpload) => {
+        run.samples[0]!.attempt = 2;
+      },
+      message: "series samples must use attempt one",
+    },
+    {
+      name: "a max-turn guard below the standard schedule",
+      mutate: (run: RunUpload) => {
+        run.selection.maxTurns = 47;
+      },
+      message: "series maxTurns must cover the standard schedule",
+    },
+  ])("rejects $name", ({ mutate, message }) => {
+    const run = createSeriesRunFixture();
+    mutate(run);
+
+    const result = RunUploadSchema.safeParse(run);
+
+    expect(result.success).toBe(false);
+    if (result.success)
+      throw new Error("expected sample schedule validation to fail");
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ message })]),
+    );
+  });
+
+  it("accepts an incomplete but valid partial series schedule", () => {
+    const run = createSeriesRunFixture();
+    run.status = "partial";
+    run.samples = run.samples.slice(0, 7);
+
+    expect(RunUploadSchema.parse(run).samples).toHaveLength(7);
   });
 
   it.each([
