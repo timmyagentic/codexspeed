@@ -10,7 +10,7 @@ Remove-Item -LiteralPath $TestRoot -Recurse -Force -ErrorAction SilentlyContinue
 $Bin = Join-Path $TestRoot "bin"
 $CodexHome = Join-Path $TestRoot "codex-home"
 New-Item -ItemType Directory -Path $Bin, $CodexHome | Out-Null
-Set-Content -LiteralPath (Join-Path $CodexHome "auth.json") -Value "{}" -Encoding utf8NoBOM
+Set-Content -LiteralPath (Join-Path $CodexHome "auth.json") -Value "{}" -Encoding utf8NoBOM -NoNewline
 $NodePath = (Get-Command node).Source
 $FakeCli = (Resolve-Path packages/runner/test/fake-codex-cli.mjs).Path
 $Shim = @(
