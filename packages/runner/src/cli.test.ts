@@ -59,7 +59,7 @@ describe("codexspeed CLI", () => {
     ) as { version: string };
 
     expect(packageJson.version).toBe(RUNNER_VERSION);
-    expect(RUNNER_VERSION).toBe("0.1.2");
+    expect(RUNNER_VERSION).toBe("0.1.3");
   });
 
   it("creates canonical UUIDv7 identifiers with timestamp, version, and variant bits", () => {
@@ -94,6 +94,42 @@ describe("codexspeed CLI", () => {
     [
       ["plan", "--max-turns", "1", "--effort", "ultra"],
       "Error: --effort must be comparable",
+    ],
+    [
+      ["plan", "--max-turns", "48", "--series"],
+      "Error: --series needs one valid identifier",
+    ],
+    [
+      ["plan", "--max-turns", "48", "--series", "gpt 5.6"],
+      "Error: --series needs one valid identifier",
+    ],
+    [
+      [
+        "plan",
+        "--max-turns",
+        "48",
+        "--series",
+        "gpt-5.6",
+        "--series",
+        "gpt-5.6",
+      ],
+      "Error: --series may be used once",
+    ],
+    [
+      ["plan", "--max-turns", "48", "--series", "gpt-5.6", "--model", "gpt-5.6-sol"],
+      "Error: --series cannot be combined with --model or --effort",
+    ],
+    [
+      ["plan", "--max-turns", "48", "--series", "gpt-5.6", "--effort", "low"],
+      "Error: --series cannot be combined with --model or --effort",
+    ],
+    [
+      ["plan", "--max-turns", "48", "--series", "gpt-5.6", "--rounds", "2"],
+      "Error: --series requires --rounds 3",
+    ],
+    [
+      ["plan", "--max-turns", "48", "--series", "gpt-5.6", "--no-warmup"],
+      "Error: --series requires warm-up",
     ],
     [["run", "--max-turns", "1"], "Error: --out is required"],
     [["doctor", "--model", "x"], "Error: doctor accepts no options"],
@@ -217,6 +253,49 @@ describe("codexspeed CLI", () => {
       "Turn 3: measured gpt-test / medium (round 2)",
       "Turn 4: measured gpt-test / medium (round 3)",
     ]);
+    expect(await readdir(directory)).toEqual(["auth.json"]);
+  });
+
+  it("prints the complete no-turn GPT-5.6 series plan", async () => {
+    const { directory, authPath } = await temporaryAuth();
+    const captured = output();
+
+    const exitCode = await runCli(
+      [
+        "plan",
+        "--series",
+        "gpt-5.6",
+        "--rounds",
+        "3",
+        "--seed",
+        "13",
+        "--max-turns",
+        "48",
+      ],
+      {
+        io: captured.io,
+        codexCommand: process.execPath,
+        codexArguments: [fakeCodex, "series-plan"],
+        authPath,
+        temporaryParent: directory,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(captured.stderr).toEqual([]);
+    expect(captured.stdout.slice(0, 4)).toEqual([
+      "Seed: 13",
+      "Mode: series",
+      "Series: gpt-5.6",
+      "Comparable cells: 15",
+    ]);
+    expect(captured.stdout).toContain("Cell 1: gpt-5.6-sol / low");
+    expect(captured.stdout).toContain("Cell 15: gpt-5.6-luna / max");
+    expect(captured.stdout).toContain("Warm-up turns: 3");
+    expect(captured.stdout).toContain("Measured turns: 45");
+    expect(captured.stdout).toContain("Total turns: 48 / max 48");
+    expect(captured.stdout.filter((line) => line.startsWith("Turn "))).toHaveLength(48);
+    expect(captured.stdout.some((line) => line.startsWith("Starting turn"))).toBe(false);
     expect(await readdir(directory)).toEqual(["auth.json"]);
   });
 
@@ -364,6 +443,85 @@ describe("codexspeed CLI", () => {
     expect(bytes).not.toContain(directory);
     expect(bytes).not.toContain("must-not-escape");
     expect(await readdir(directory)).toEqual(["auth.json", "run.json"]);
+  });
+
+  it("runs the standard GPT-5.6 series and records its exact selection", async () => {
+    const { directory, authPath } = await temporaryAuth();
+    const artifactPath = join(directory, "gpt-5.6-series.json");
+    const captured = output();
+    let id = 0x100;
+    const dates = [
+      new Date("2026-07-16T10:00:00.000Z"),
+      new Date("2026-07-16T10:30:00.000Z"),
+    ];
+
+    const exitCode = await runCli(
+      [
+        "run",
+        "--series",
+        "gpt-5.6",
+        "--seed",
+        "13",
+        "--max-turns",
+        "48",
+        "--out",
+        artifactPath,
+      ],
+      {
+        io: captured.io,
+        codexCommand: process.execPath,
+        codexArguments: [fakeCodex, "series-run"],
+        authPath,
+        temporaryParent: directory,
+        now: () => dates.shift()!,
+        idFactory: () =>
+          `01900000-0000-7000-8000-${(id++).toString(16).padStart(12, "0")}`,
+        publicEnvironment: {
+          osFamily: "macos",
+          osVersion: "15.5",
+          architecture: "arm64",
+          region: "east-asia",
+          authChannel: "chatgpt",
+          serviceTier: "default",
+        },
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(captured.stderr).toEqual([]);
+    const run = RunUploadSchema.parse(
+      JSON.parse(await readFile(artifactPath, "utf8")),
+    );
+    expect(run).toMatchObject({
+      mode: "series",
+      runnerVersion: "0.1.3",
+      seed: 13,
+      selection: {
+        series: "gpt-5.6",
+        warmupPerModel: 1,
+        measuredRounds: 3,
+        maxTurns: 48,
+      },
+    });
+    expect(run.selection.cells).toHaveLength(15);
+    expect(run.samples).toHaveLength(48);
+    expect(run.samples.filter((sample) => sample.phase === "warmup")).toHaveLength(3);
+    expect(run.samples.filter((sample) => sample.phase === "measured")).toHaveLength(45);
+    for (const cell of run.selection.cells) {
+      expect(
+        run.samples.filter(
+          (sample) =>
+            sample.phase === "measured" &&
+            sample.model === cell.model &&
+            sample.effort === cell.effort,
+        ),
+      ).toHaveLength(3);
+    }
+    expect(run.samples.every((sample) => sample.effort !== ("ultra" as never))).toBe(true);
+    expect((await stat(artifactPath)).mode & 0o777).toBe(0o600);
+    expect(captured.stdout).toContain("Mode: series");
+    expect(captured.stdout).toContain("Series: gpt-5.6");
+    expect(captured.stdout).toContain("Finished turn 48/48: completed; remaining 0");
   });
 
   it("fully terminates a timed-out App Server and reconnects before the next sequential sample", async () => {
