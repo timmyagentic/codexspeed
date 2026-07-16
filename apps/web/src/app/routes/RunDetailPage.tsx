@@ -299,7 +299,7 @@ export function RunDetailPage({ runId }: { runId: string }) {
           ))}
         </dl>
       </section>
-      <ReliabilityBand value={state.value} />
+      <ReliabilityBand summary={state.value.summary} />
     </article>
   );
 }

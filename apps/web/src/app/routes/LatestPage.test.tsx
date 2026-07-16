@@ -1,4 +1,7 @@
-import { createRunFixture, type LatestRunResponse } from "@codexspeed/contracts";
+import {
+  createRunFixture,
+  type LatestRunResponse,
+} from "@codexspeed/contracts";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -24,7 +27,11 @@ function latestFixture(): LatestRunResponse {
           model: "gpt-5.3-codex",
           effort: "medium",
           coverage: { expectedMeasuredSamples: 1, recordedMeasuredSamples: 2 },
-          reliability: { measuredSamples: 2, validSamples: 1, invalidSamples: 1 },
+          reliability: {
+            measuredSamples: 2,
+            validSamples: 1,
+            invalidSamples: 1,
+          },
           metrics: {
             firstVisibleTextMs: { p50: 1_000, min: 1_000, max: 1_000, n: 1 },
             visibleStreamTpsEstimate: { p50: 49.9, min: 49.9, max: 49.9, n: 1 },
@@ -49,12 +56,24 @@ afterEach(() => {
 
 describe("LatestPage", () => {
   it("shows an empty publication state without presenting a retry for 404", async () => {
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(new Response("missing", { status: 404 })));
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response("missing", { status: 404 })),
+    );
 
     render(<LatestPage />);
 
-    expect(await screen.findByText("No benchmark has been published yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Retry latest benchmark" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Test on this device" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("No benchmark has been published yet."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Retry latest benchmark" }),
+    ).not.toBeInTheDocument();
   });
 
   it("offers a retry after a latest API error and renders the validated response", async () => {
@@ -66,17 +85,30 @@ describe("LatestPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(<LatestPage />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Latest benchmark is unavailable.");
+    expect(
+      screen.getByRole("link", { name: "Test on this device" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Latest benchmark is unavailable.",
+    );
 
-    await user.click(screen.getByRole("button", { name: "Retry latest benchmark" }));
+    await user.click(
+      screen.getByRole("button", { name: "Retry latest benchmark" }),
+    );
 
-    expect(await screen.findByRole("heading", { name: "Latest benchmark" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Latest benchmark" }),
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     const streamTab = screen.getByRole("tab", { name: "Visible stream TPS" });
     streamTab.focus();
     await user.keyboard("{ArrowRight}");
-    expect(screen.getByRole("tab", { name: "First visible text" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "First visible text" })).toHaveFocus();
+    expect(
+      screen.getByRole("tab", { name: "First visible text" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("tab", { name: "First visible text" }),
+    ).toHaveFocus();
   });
 });

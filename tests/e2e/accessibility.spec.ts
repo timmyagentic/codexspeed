@@ -45,6 +45,15 @@ const routeCases: readonly {
       ).toBeVisible();
     },
   },
+  {
+    route: "/local",
+    ready: async (page) => {
+      await expect(
+        page.getByRole("heading", { name: "Test Codex speed on this device" }),
+      ).toBeVisible();
+      await expect(page.getByLabel("Open a CodexSpeed result")).toBeVisible();
+    },
+  },
 ];
 
 for (const { route, ready } of routeCases) {

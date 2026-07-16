@@ -1,9 +1,31 @@
 {
   "name": "codexspeed",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.2.0",
+  "description": "Measure Codex output speed on your own device and network.",
+  "private": false,
   "type": "module",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/timmyagentic/codexspeed.git"
+  },
+  "homepage": "https://codexspeed.timmyagentic.com/local",
+  "bugs": {
+    "url": "https://github.com/timmyagentic/codexspeed/issues"
+  },
+  "bin": {
+    "codexspeed": "dist/cli.js"
+  },
+  "files": [
+    "dist/cli.js",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "packageManager": "pnpm@10.34.5",
   "engines": {
     "node": ">=22",
@@ -11,16 +33,20 @@
   },
   "scripts": {
     "codexspeed": "corepack pnpm --filter @codexspeed/runner codexspeed",
-    "build": "corepack pnpm -r --if-present build",
-    "format:check": "prettier --check package.json tsconfig.e2e.json playwright.config.ts eslint.config.js .github/workflows/ci.yml README.md THIRD_PARTY_NOTICES.md scripts tests/e2e docs/methodology/README.md docs/methodology/formulas.md docs/methodology/limitations.md apps/web/vite.config.ts apps/web/wrangler.jsonc apps/web/src/styles.css apps/web/src/app/routes/MethodologyPage.tsx apps/web/src/app/routes/RunDetailPage.tsx apps/web/src/app/source-revision.ts apps/web/src/app/source-revision.test.ts apps/web/src/components/MetricSelector.tsx apps/web/src/components/SiteFooter.tsx apps/web/src/components/SiteHeader.tsx packages/contracts/package.json packages/contracts/tsconfig.json packages/contracts/src/index.ts packages/contracts/src/run.ts packages/contracts/src/run.test.ts packages/runner/package.json packages/runner/tsconfig.json packages/runner/src/cli.ts packages/runner/src/cli.test.ts packages/runner/src/publisher.ts",
+    "build": "corepack pnpm -r --if-present build && node scripts/build-public-cli.mjs",
+    "build:public-cli": "corepack pnpm --filter @codexspeed/metrics build && node scripts/build-public-cli.mjs",
+    "format:check": "prettier --check package.json tsconfig.e2e.json playwright.config.ts eslint.config.js .github/workflows README.md THIRD_PARTY_NOTICES.md scripts tests/e2e docs/methodology/README.md docs/methodology/formulas.md docs/methodology/limitations.md apps/web/vite.config.ts apps/web/wrangler.jsonc apps/web/src/styles.css apps/web/src/app/App.tsx apps/web/src/app/local-artifact.ts apps/web/src/app/local-artifact.test.ts apps/web/src/app/local-runner.ts apps/web/src/app/routes/LatestPage.tsx apps/web/src/app/routes/LatestPage.test.tsx apps/web/src/app/routes/LocalRunPage.tsx apps/web/src/app/routes/LocalRunPage.test.tsx apps/web/src/app/routes/MethodologyPage.tsx apps/web/src/app/routes/RunDetailPage.tsx apps/web/src/app/source-revision.ts apps/web/src/app/source-revision.test.ts apps/web/src/app/static-headers.test.ts apps/web/src/components/CopyCommand.tsx apps/web/src/components/LocalArtifactViewer.tsx apps/web/src/components/LocalRunnerCta.tsx apps/web/src/components/MetricSelector.tsx apps/web/src/components/ReliabilityBand.tsx apps/web/src/components/SiteFooter.tsx apps/web/src/components/SiteHeader.tsx packages/contracts/package.json packages/contracts/tsconfig.json packages/contracts/src/index.ts packages/contracts/src/run.ts packages/contracts/src/run.test.ts packages/metrics/package.json packages/metrics/tsconfig.json packages/runner/package.json packages/runner/tsconfig.json packages/runner/src/bin.ts packages/runner/src/cli.ts packages/runner/src/cli.test.ts packages/runner/src/commands/doctor.ts packages/runner/src/commands/measure.ts packages/runner/src/measure.test.ts packages/runner/src/publisher.ts packages/runner/src/runtime.ts packages/runner/src/runtime.test.ts packages/runner/src/terminal-result.ts packages/runner/src/terminal-result.test.ts packages/runner/src/version.ts packages/runner/test",
     "lint": "eslint .",
     "test:cli-built": "node scripts/check-runner-cli.mjs",
+    "test:public-cli": "node scripts/check-public-cli.mjs",
+    "test:portable": "node scripts/check-portable-release.mjs",
+    "test:run-scripts": "node --test scripts/run-scripts.test.mjs",
     "test:sensitive": "node --test scripts/check-sensitive-output.test.mjs && node scripts/check-sensitive-output.mjs",
     "test:e2e": "corepack pnpm build && playwright test",
     "test:e2e:prepared": "playwright test",
     "test": "corepack pnpm -r --if-present test",
     "typecheck": "corepack pnpm -r --if-present typecheck && corepack pnpm --filter @codexspeed/web types:check && tsc --noEmit -p tsconfig.e2e.json",
-    "check": "corepack pnpm format:check && corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build && corepack pnpm test:cli-built && corepack pnpm test:e2e:prepared && corepack pnpm test:sensitive && git diff --check"
+    "check": "corepack pnpm format:check && corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build && corepack pnpm test:cli-built && corepack pnpm test:public-cli && corepack pnpm test:portable && corepack pnpm test:run-scripts && corepack pnpm test:e2e:prepared && corepack pnpm test:sensitive && git diff --check"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
@@ -30,6 +56,7 @@
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.61.1",
     "@types/node": "22.20.1",
+    "esbuild": "0.28.1",
     "eslint": "10.7.0",
     "globals": "17.7.0",
     "prettier": "3.9.5",

@@ -17,6 +17,7 @@ export function SiteHeader({ activePath }: SiteHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const links = [
     { href: "/", label: "Latest" },
+    { href: "/local", label: "Test locally" },
     { href: "/runs", label: "Runs" },
     { href: "/methodology", label: "Methodology" },
     { href: REPOSITORY_URL, label: "GitHub", external: true },

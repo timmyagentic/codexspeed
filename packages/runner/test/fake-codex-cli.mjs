@@ -28,15 +28,27 @@ function assertIsolatedEnvironment() {
     "CODEX_CONFIG",
     "CODEX_SKILLS",
   ]) {
-    if (process.env[forbidden] !== undefined) fail(`forbidden environment: ${forbidden}`);
+    if (process.env[forbidden] !== undefined)
+      fail(`forbidden environment: ${forbidden}`);
   }
   const codexHome = process.env.CODEX_HOME;
-  if (!codexHome || process.env.CODEX_SQLITE_HOME !== codexHome) fail("unsafe Codex home");
-  if (process.env.HOME === undefined || process.env.HOME === codexHome) fail("unsafe HOME");
-  if ((statSync(codexHome).mode & 0o777) !== 0o700) fail("unsafe Codex home mode");
+  if (!codexHome || process.env.CODEX_SQLITE_HOME !== codexHome)
+    fail("unsafe Codex home");
+  if (process.env.HOME === undefined || process.env.HOME === codexHome)
+    fail("unsafe HOME");
+  if (
+    process.platform !== "win32" &&
+    (statSync(codexHome).mode & 0o777) !== 0o700
+  )
+    fail("unsafe Codex home mode");
   const authPath = `${codexHome}/auth.json`;
-  if (readdirSync(codexHome).join("\n") !== "auth.json") fail("Codex home was not auth-only");
-  if ((statSync(authPath).mode & 0o777) !== 0o600) fail("unsafe auth mode");
+  if (readdirSync(codexHome).join("\n") !== "auth.json")
+    fail("Codex home was not auth-only");
+  if (
+    process.platform !== "win32" &&
+    (statSync(authPath).mode & 0o777) !== 0o600
+  )
+    fail("unsafe auth mode");
   if (readFileSync(authPath, "utf8") !== "{}") fail("wrong auth material");
   if (
     scenario === "proxy" &&
@@ -88,7 +100,10 @@ if (statePath !== undefined) {
 
 let initialized = false;
 let acknowledged = false;
-const outputWords = Array.from({ length: 112 }, (_, index) => `benchmark${index}`).join(" ");
+const outputWords = Array.from(
+  { length: 112 },
+  (_, index) => `benchmark${index}`,
+).join(" ");
 const validOutput = [
   "## Summary",
   outputWords,
@@ -112,12 +127,15 @@ const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
 input.on("line", (line) => {
   const message = JSON.parse(line);
   if (message.method === "initialize") {
-    if (message.params?.clientInfo?.version !== "0.1.3") {
+    if (message.params?.clientInfo?.version !== "0.2.0") {
       rpcError(message.id, "wrong runner version");
       return;
     }
     initialized = true;
-    send({ id: message.id, result: { userAgent: "fake", platformFamily: "unix", platformOs: "test" } });
+    send({
+      id: message.id,
+      result: { userAgent: "fake", platformFamily: "unix", platformOs: "test" },
+    });
     return;
   }
   if (message.method === "initialized") {
@@ -139,9 +157,17 @@ input.on("line", (line) => {
             displayName: `GPT-5.6 ${suffix}`,
             hidden: false,
             defaultReasoningEffort: suffix === "sol" ? "low" : "medium",
-            supportedReasoningEfforts: ["low", "medium", "high", "xhigh", "max", "ultra"].map(
-              (reasoningEffort) => ({ reasoningEffort, description: reasoningEffort }),
-            ),
+            supportedReasoningEfforts: [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "ultra",
+            ].map((reasoningEffort) => ({
+              reasoningEffort,
+              description: reasoningEffort,
+            })),
           })),
           nextCursor: null,
         },
@@ -168,7 +194,9 @@ input.on("line", (line) => {
             displayName: "Hidden",
             hidden: true,
             defaultReasoningEffort: "ultra",
-            supportedReasoningEfforts: [{ reasoningEffort: "ultra", description: "Ultra" }],
+            supportedReasoningEfforts: [
+              { reasoningEffort: "ultra", description: "Ultra" },
+            ],
           },
         ],
         nextCursor: null,
@@ -186,7 +214,8 @@ input.on("line", (line) => {
         : message.params?.model === "gpt-test";
     if (
       typeof workspace !== "string" ||
-      (statSync(workspace).mode & 0o777) !== 0o700 ||
+      (process.platform !== "win32" &&
+        (statSync(workspace).mode & 0o777) !== 0o700) ||
       !expectedModel ||
       message.params?.sandbox !== "read-only" ||
       message.params?.approvalPolicy !== "never" ||
@@ -208,10 +237,17 @@ input.on("line", (line) => {
     return;
   }
   if (message.method === "turn/start") {
-    if (scenario === "doctor" || scenario === "plan" || scenario === "series-plan")
+    if (
+      scenario === "doctor" ||
+      scenario === "plan" ||
+      scenario === "series-plan"
+    )
       fail("unexpected model turn");
     if (scenario === "timeout-recover" && serverNumber === 1) return;
-    send({ id: message.id, result: { turn: { id: "turn-active", status: "inProgress", items: [] } } });
+    send({
+      id: message.id,
+      result: { turn: { id: "turn-active", status: "inProgress", items: [] } },
+    });
     send({
       method: "item/agentMessage/delta",
       params: {
@@ -239,7 +275,9 @@ input.on("line", (line) => {
         turn: {
           id: "turn-active",
           status: "completed",
-          items: [{ id: "message-final", type: "agentMessage", text: validOutput }],
+          items: [
+            { id: "message-final", type: "agentMessage", text: validOutput },
+          ],
         },
       },
     });

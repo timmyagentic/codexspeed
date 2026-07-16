@@ -17,11 +17,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm exec playwright install --with-deps chromium
       - run: corepack pnpm check
+
+  windows-command-shim:
+    name: Windows Codex npm shim
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm build:public-cli
+      - run: node scripts/stage-portable-release.mjs --platform windows --arch x64 --out artifacts/stage
+      - shell: pwsh
+        run: ./scripts/check-windows-portable.ps1 -Launcher artifacts/stage/codexspeed/bin/codexspeed.cmd

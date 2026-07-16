@@ -1,23 +1,81 @@
 # CodexSpeed
 
-CodexSpeed is an independent benchmark and public dashboard for comparing the
-visible output speed of Codex models at different reasoning efforts.
+CodexSpeed is an independent local benchmark and public dashboard for comparing
+the visible output speed of Codex models at different reasoning efforts. Anyone
+can run the benchmark on their own computer and network; no API key is needed.
 
-The benchmark runs locally through the installed Codex App Server. A signed
-publisher uploads sanitized benchmark results to a display-only Cloudflare
-site. The public website never runs Codex and never receives Codex credentials.
+The benchmark runs locally through the installed Codex App Server. The public
+website never runs Codex and never receives Codex credentials. It can open a
+result JSON entirely in the browser for local viewing, while the maintainer can
+separately publish selected sanitized results through a signed upload path.
 
 The project is independent and is not affiliated with, sponsored by, or
 endorsed by OpenAI. “Codex” is used only to identify the product being measured.
 
 ## Status
 
-The reproducible local runner, signed publication API, display dashboard, and
-genuine production smoke publication are live. Read the public
+The reproducible v0.2.0 local runner, browser-local result viewer, signed
+publication API, display dashboard, and genuine production benchmark are live.
+Start at [`Test locally`](https://codexspeed.timmyagentic.com/local), or read the public
 [`methodology`](docs/methodology/README.md) and the approved
 [`design`](docs/superpowers/specs/2026-07-16-codexspeed-design.md).
 
-## Local runner
+## Test this device and network
+
+Prerequisites are an installed Codex CLI and an existing ChatGPT login. The
+portable download includes its own fixed Node.js runtime.
+
+On macOS or Linux, run:
+
+```sh
+curl --proto '=https' --tlsv1.2 -fsSL https://codexspeed.timmyagentic.com/run.sh | sh
+```
+
+On Windows, run this in PowerShell:
+
+```powershell
+irm https://codexspeed.timmyagentic.com/run.ps1 | iex
+```
+
+If Node.js 22 is already installed, the exact v0.2.0 GitHub Release package can
+instead be run with:
+
+```sh
+npx --yes https://github.com/timmyagentic/codexspeed/releases/download/v0.2.0/codexspeed-0.2.0.tgz
+```
+
+The guided runner checks Codex and the current model catalog without starting a
+model turn, then asks for one model and one reasoning effort. Its default test is
+one unmeasured warm-up plus three measured rounds: four real Codex turns. Before
+anything is run, it prints that exact count, warns that the turns use the current
+Codex/ChatGPT allowance and may have billing impact depending on the account,
+and requires explicit confirmation.
+
+After the run, the terminal shows the p50 estimated visible-stream speed, first
+visible-text latency, visible end-to-end speed, total latency, and sample
+reliability. It also saves a timestamped `codexspeed-result-*.json` in the current
+directory. Nothing is uploaded automatically.
+
+Open [`codexspeed.timmyagentic.com/local`](https://codexspeed.timmyagentic.com/local)
+and choose that JSON file to see the same result as a matrix. The file is parsed,
+validated, and summarized by the page in the browser; choosing it does not send
+its contents to CodexSpeed.
+
+### Direct portable downloads
+
+Download the asset for the operating system and CPU, verify it against
+[`SHA256SUMS`](https://github.com/timmyagentic/codexspeed/releases/download/v0.2.0/SHA256SUMS),
+then extract it. Run `codexspeed/bin/codexspeed` on macOS or Linux, or
+`codexspeed\bin\codexspeed.cmd` on Windows.
+
+- [macOS Apple Silicon](https://github.com/timmyagentic/codexspeed/releases/download/v0.2.0/codexspeed-v0.2.0-macos-arm64.tar.gz)
+- [macOS Intel](https://github.com/timmyagentic/codexspeed/releases/download/v0.2.0/codexspeed-v0.2.0-macos-x64.tar.gz)
+- [Linux x64](https://github.com/timmyagentic/codexspeed/releases/download/v0.2.0/codexspeed-v0.2.0-linux-x64.tar.gz)
+- [Linux ARM64](https://github.com/timmyagentic/codexspeed/releases/download/v0.2.0/codexspeed-v0.2.0-linux-arm64.tar.gz)
+- [Windows x64](https://github.com/timmyagentic/codexspeed/releases/download/v0.2.0/codexspeed-v0.2.0-windows-x64.zip)
+- [Windows ARM64](https://github.com/timmyagentic/codexspeed/releases/download/v0.2.0/codexspeed-v0.2.0-windows-arm64.zip)
+
+## Advanced workspace runner
 
 CodexSpeed requires Node.js 22, pnpm 10 through Corepack, the installed Codex
 CLI, and an existing ChatGPT login. Install and build the workspace first:
@@ -76,7 +134,11 @@ The artifact is compact schema-validated JSON with owner-only permissions. It
 contains benchmark evidence, not prompt/response text, credentials, local
 paths, App Server transcripts, or arbitrary environment data.
 
-## Signed publication
+## Maintainer-only signed publication
+
+Ordinary local tests do not need a publisher key and cannot publish to the
+public dashboard. Opening a JSON on the local-test page is not publication. The
+following authenticated path is reserved for the site maintainer.
 
 The publisher key ID and unpadded base64url 32-byte HMAC secret are accepted
 only through environment variables. The secret must match the Cloudflare

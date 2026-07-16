@@ -33,6 +33,14 @@ Visible stream TPS is unavailable when `V < 2` or `t_last = t_first`; the site
 never displays infinity. It is an estimate because App Server emits text chunks,
 not one event per token.
 
+These speed metrics use different windows. `visible_stream_tps_est` describes
+the cadence after visible output has begun and stops at the last visible chunk;
+it excludes first-visible-text latency and the completion tail.
+`visible_e2e_tps` divides by the complete turn duration, so it includes startup,
+reasoning before visible output, network delay, and the tail before the matching
+completion notification. A lower end-to-end value does not imply that visible
+text streamed at that lower cadence.
+
 Server code recomputes values from raw durations and token counts. Per selected
 model/effort cell, only valid measured samples contribute. The site reports p50,
 minimum, maximum, and `n`. p50 is the middle sorted value for odd `n` and the

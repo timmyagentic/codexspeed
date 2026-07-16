@@ -1,10 +1,16 @@
 import { rm } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = resolve(new URL("..", import.meta.url).pathname);
+const root = fileURLToPath(new URL("..", import.meta.url));
 const packagePath = relative(root, process.cwd()).split(sep).join("/");
-if (packagePath !== "packages/contracts" && packagePath !== "packages/runner") {
-  throw new Error("package dist cleanup may run only for contracts or runner");
+const allowedPackages = new Set([
+  "packages/contracts",
+  "packages/metrics",
+  "packages/runner",
+]);
+if (!allowedPackages.has(packagePath)) {
+  throw new Error("package dist cleanup may run only for buildable packages");
 }
 
 await rm(resolve(process.cwd(), "dist"), { recursive: true, force: true });
