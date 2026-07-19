@@ -14,6 +14,14 @@
 
 All implementation captures use the current production `/api/v1/latest` run copied into a temporary local D1 and published with the local test signing key. No production data was changed.
 
+## Same-input comparisons
+
+- Full desktop source and implementation: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/comparisons/local/codexspeed-desktop.png`.
+- Responsive source and mobile implementation: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/comparisons/local/codexspeed-mobile.png`.
+- Focused benchmark matrix and Compare rail: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/comparisons/local/codexspeed-focus.png`.
+
+The selected source defines a desktop state only. The responsive board therefore checks visual language and information priority, while the 390 × 844 implementation is additionally checked against the baseline mobile state and its measured no-overflow contract.
+
 ## Comparison history
 
 1. Compared the full selected Evidence Ledger reference with the desktop implementation capture. Header rhythm, two-column proof hero, four-part evidence strip, local-runner callout, metric tabs, matrix/compare split, warm paper palette, lime proof signals, amber validity signal, and ledger footer all map closely to the selected target.
