@@ -2,23 +2,23 @@
 
 ## Sources
 
-- Selected reference: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/selected/codexspeed.png`
-- Baseline desktop: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/before/codexspeed-desktop-full.png`
-- Baseline mobile: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/before/codexspeed-mobile-full.png`
+- Selected reference: delivery evidence archive `five-site-redesign/selected/codexspeed.png`
+- Baseline desktop: delivery evidence archive `five-site-redesign/before/codexspeed-desktop-full.png`
+- Baseline mobile: delivery evidence archive `five-site-redesign/before/codexspeed-mobile-full.png`
 
 ## Implementation captures
 
-- Desktop, latest ledger, 1440 × 1024: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/local/codexspeed/desktop-1440x1024.png`
-- Desktop, two-cell comparison, 1440 × 1024: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/local/codexspeed/desktop-compare-1440x1024.png`
-- Mobile, latest ledger, 390 × 844: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/local/codexspeed/mobile-390x844.png`
+- Desktop, latest ledger, 1440 × 1024: delivery evidence archive `five-site-redesign/local/codexspeed/desktop-1440x1024.png`
+- Desktop, two-cell comparison, 1440 × 1024: delivery evidence archive `five-site-redesign/local/codexspeed/desktop-compare-1440x1024.png`
+- Mobile, latest ledger, 390 × 844: delivery evidence archive `five-site-redesign/local/codexspeed/mobile-390x844.png`
 
 All implementation captures use the current production `/api/v1/latest` run copied into a temporary local D1 and published with the local test signing key. No production data was changed.
 
 ## Same-input comparisons
 
-- Full desktop source and implementation: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/comparisons/local/codexspeed-desktop.png`.
-- Responsive source and mobile implementation: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/comparisons/local/codexspeed-mobile.png`.
-- Focused benchmark matrix and Compare rail: `/Users/timmy/.codex/visualizations/2026/07/19/019f79d0-42b0-7cc3-be35-4b071ec9aeec/five-site-redesign/comparisons/local/codexspeed-focus.png`.
+- Full desktop source and implementation: delivery evidence archive `five-site-redesign/comparisons/local/codexspeed-desktop.png`.
+- Responsive source and mobile implementation: delivery evidence archive `five-site-redesign/comparisons/local/codexspeed-mobile.png`.
+- Focused benchmark matrix and Compare rail: delivery evidence archive `five-site-redesign/comparisons/local/codexspeed-focus.png`.
 
 The selected source defines a desktop state only. The responsive board therefore checks visual language and information priority, while the 390 × 844 implementation is additionally checked against the baseline mobile state and its measured no-overflow contract.
 
