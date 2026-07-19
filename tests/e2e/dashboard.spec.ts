@@ -171,6 +171,7 @@ test("renders the complete public methodology and deployed third-party notices",
   expect(notices.status()).toBe(200);
   const noticeText = await notices.text();
   expect(noticeText).toContain("React 19.2.7");
+  expect(noticeText).toContain("Lucide React 1.25.0");
   expect(noticeText).toContain("Zod 3.25.76");
   await expectHealthyPage(page, health, testInfo);
 });
