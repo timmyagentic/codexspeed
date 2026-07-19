@@ -99,6 +99,13 @@ describe("LatestPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Latest benchmark" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "CodexSpeed evidence ledger" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("1 / 1 cells meet sample count"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1 measured sample excluded")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     const streamTab = screen.getByRole("tab", { name: "Visible stream TPS" });

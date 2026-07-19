@@ -16,6 +16,7 @@
   "dependencies": {
     "@codexspeed/contracts": "workspace:*",
     "@codexspeed/metrics": "workspace:*",
+    "lucide-react": "1.25.0",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },
